@@ -164,7 +164,7 @@ figs["codebooks"] = fig_json(f, 380)
 cm = confusion(pred["clasificacion_humana"], pred["llm_v2"]).drop(index="AMBIGUO")
 lab_cm = [DIM_LABELS.get(i, "Ambiguo") for i in cm.columns]
 lab_x = [l.replace("Sociodemográfica", "Socio-<br>demográfica") for l in lab_cm]
-f = go.Figure(go.Heatmap(z=cm.values, x=lab_x, y=lab_cm[:-1], colorscale=[[0, "#fcfcfb"], [1, SEQUENTIAL_BLUE[5]]], texttemplate="%{z}",
+f = go.Figure(go.Heatmap(z=cm.values, x=lab_x, y=lab_cm[:-1], colorscale=[[0, "#FFFDFA"], [1, SEQUENTIAL_BLUE[5]]], texttemplate="%{z}",
                          hovertemplate="Manual %{y} · LLM %{x}: %{z}<extra></extra>", xgap=2, ygap=2, showscale=False))
 f.update_layout(xaxis=dict(title="Clasificación del LLM", showgrid=False), yaxis=dict(title="Clasificación manual", autorange="reversed", showgrid=False), margin=dict(l=140))
 figs["confusion"] = fig_json(f, 380)
@@ -205,7 +205,7 @@ q.addEventListener('input',renderT);fd.addEventListener('change',renderT);render
 """ % json.dumps(indicators, ensure_ascii=False)
 opts = "".join(f"<option>{v}</option>" for v in DIM_LABELS.values())
 table_html = (f'<div class="controls"><input id="q" type="search" placeholder="Buscar por nombre o código…" style="min-width:260px">'
-              f'<select id="fd"><option value="">Todas las dimensiones</option>{opts}</select><span id="cnt" style="color:#898781"></span></div>'
+              f'<select id="fd"><option value="">Todas las dimensiones</option>{opts}</select><span id="cnt" style="color:#8A8F88"></span></div>'
               '<div class="tablebox"><table><thead><tr><th>Código</th><th>Indicador</th><th>Fuente</th><th>Dimensión</th><th>Método</th></tr></thead><tbody id="indbody"></tbody></table></div>')
 
 agree = wv.groupby("fuente")["estable"].mean()
@@ -242,9 +242,9 @@ figs = {}
 q = cpi.loc[:, 1990:2024].quantile([0.1, 0.25, 0.5, 0.75, 0.9]).T
 f = go.Figure()
 f.add_vrect(x0=1999.5, x1=2020.5, fillcolor=NEUTRAL, line_width=0, layer="below")
-f.add_scatter(x=list(q.index) + list(q.index[::-1]), y=list(q[0.9]) + list(q[0.1][::-1]), fill="toself", fillcolor="rgba(42,120,214,0.12)",
+f.add_scatter(x=list(q.index) + list(q.index[::-1]), y=list(q[0.9]) + list(q[0.1][::-1]), fill="toself", fillcolor="rgba(49,91,75,0.12)",
               line=dict(width=0), name="Percentiles 10–90", hoverinfo="skip")
-f.add_scatter(x=list(q.index) + list(q.index[::-1]), y=list(q[0.75]) + list(q[0.25][::-1]), fill="toself", fillcolor="rgba(42,120,214,0.28)",
+f.add_scatter(x=list(q.index) + list(q.index[::-1]), y=list(q[0.75]) + list(q[0.25][::-1]), fill="toself", fillcolor="rgba(49,91,75,0.28)",
               line=dict(width=0), name="Percentiles 25–75", hoverinfo="skip")
 f.add_scatter(x=q.index, y=q[0.5], name="Mediana", line=dict(color=CATEGORICAL[0]), hovertemplate="%{x}: mediana %{y:.1f}%<extra></extra>")
 f.update_layout(yaxis=dict(title="Inflación anual (%)", range=[-2, 45]))
@@ -255,7 +255,7 @@ f = go.Figure()
 for i, (reg, g) in enumerate(t.groupby("region_es")):
     f.add_scatter(x=g["media"], y=g["volatilidad"], mode="markers", name=reg, customdata=g[["pais"]].values,
                   marker=dict(size=8, color=[CATEGORICAL[0], CATEGORICAL[1], CATEGORICAL[2], CATEGORICAL[3], CATEGORICAL[6]][i],
-                              symbol=["circle", "square", "diamond", "triangle-up", "x"][i], line=dict(color="#fcfcfb", width=1)),
+                              symbol=["circle", "square", "diamond", "triangle-up", "x"][i], line=dict(color="#FFFDFA", width=1)),
                   hovertemplate="%{customdata[0]}<br>media %{x:.1f}% · volatilidad %{y:.1f}<extra></extra>")
 ticks = [0.1, 0.3, 1, 3, 10, 30, 100]
 f.update_layout(xaxis=dict(type="log", title="Inflación media 2000-2020 (%)", tickvals=ticks, ticktext=[fmt(v, 1).rstrip("0").rstrip(",") for v in ticks]),
@@ -263,10 +263,10 @@ f.update_layout(xaxis=dict(type="log", title="Inflación media 2000-2020 (%)", t
 figs["scatter"] = fig_json(f, 380)
 
 world = go.Figure(go.Choropleth(locations=t.index, z=np.log10(t["media"]), customdata=np.c_[t["pais"], t["media"]],
-                                colorscale=[[0, "#cde2fb"], [0.5, "#3987e5"], [0.75, "#eb6834"], [1, "#8a2a1f"]], zmin=np.log10(0.5), zmax=np.log10(60),
-                                hovertemplate="%{customdata[0]}: %{customdata[1]:.1f}%<extra></extra>", marker_line_color="#fcfcfb", marker_line_width=0.4,
+                                colorscale=[[0, "#E4EDE8"], [0.5, "#477A65"], [0.75, "#C2577A"], [1, "#7A2638"]], zmin=np.log10(0.5), zmax=np.log10(60),
+                                hovertemplate="%{customdata[0]}: %{customdata[1]:.1f}%<extra></extra>", marker_line_color="#FFFDFA", marker_line_width=0.4,
                                 colorbar=dict(title="%", tickvals=np.log10([0.5, 1, 2, 5, 10, 20, 50]), ticktext=["0,5", "1", "2", "5", "10", "20", "50"], thickness=10)))
-world.update_layout(geo=dict(showframe=False, showcoastlines=False, projection_type="natural earth", bgcolor="rgba(0,0,0,0)", landcolor="#efeee9", showland=True))
+world.update_layout(geo=dict(showframe=False, showcoastlines=False, projection_type="natural earth", bgcolor="rgba(0,0,0,0)", landcolor="#EFE9E1", showland=True))
 figs["map"] = fig_json(world, 480)
 figs["map"]["layout"]["margin"] = dict(l=0, r=0, t=10, b=0)
 
@@ -275,7 +275,7 @@ hi = H.index[(H > 40).any(axis=1)]
 H = H.loc[H.loc[hi].max(axis=1).sort_values(ascending=False).index]
 sl = lambda x: np.sign(x) * np.log10(1 + np.abs(x))
 f = go.Figure(go.Heatmap(z=sl(H.values), x=list(H.columns), y=[M.loc[i, "corto"] for i in H.index], customdata=H.values, zmin=0, zmax=sl(600),
-                         colorscale=[[0, "#cde2fb"], [0.35, "#6da7ec"], [0.6, "#eb6834"], [1, "#8a2a1f"]], xgap=1, ygap=1,
+                         colorscale=[[0, "#E4EDE8"], [0.35, "#97B9A8"], [0.6, "#C2577A"], [1, "#7A2638"]], xgap=1, ygap=1,
                          hovertemplate="%{y} %{x}: %{customdata:.1f}%<extra></extra>",
                          colorbar=dict(title="%", tickvals=sl(np.array([0, 10, 40, 100, 500])), ticktext=["0", "10", "40", "100", "500"], thickness=10)))
 f.update_layout(xaxis=dict(showgrid=False, dtick=2), yaxis=dict(showgrid=False, autorange="reversed"), margin=dict(l=170))
@@ -306,14 +306,14 @@ function ols(x,y){const n=x.length,mx=x.reduce((a,b)=>a+b)/n,my=y.reduce((a,b)=>
 const nf=(v,d=1)=>v.toFixed(d).replace('.',',');
 function renderC(){const k=document.getElementById('cty').value,s=SER[k];
  const wy=[],wv=[];s.y.forEach((y,i)=>{if(y>=2000&&y<=2020){wy.push(y);wv.push(s.v[i])}});
- const tr=[{x:s.y,y:s.v,mode:'lines+markers',name:'Inflación anual',line:{color:'#2a78d6',width:2},marker:{size:5},hovertemplate:'%%{x}: %%{y:.1f}%%<extra></extra>'}];
- if(wy.length>=5){const [b,a]=ols(wy,wv);tr.push({x:[2000,2020],y:[a+b*2000,a+b*2020],mode:'lines',name:'Tendencia OLS 2000-2020',line:{color:'#eb6834',dash:'dash',width:2},hoverinfo:'skip'})}
- const lay={height:400,margin:{l:56,r:16,t:20,b:40},paper_bgcolor:'#fcfcfb',plot_bgcolor:'#fcfcfb',font:{family:'system-ui,sans-serif',size:12},
-  shapes:[{type:'rect',xref:'x',yref:'paper',x0:1999.5,x1:2020.5,y0:0,y1:1,fillcolor:'#f0efec',line:{width:0},layer:'below'}],
-  xaxis:{range:[1997.5,2024.5],gridcolor:'#e1e0d9'},yaxis:{title:{text:'Inflación anual (%%)'},gridcolor:'#e1e0d9',zerolinecolor:'#c3c2b7'},legend:{orientation:'h',y:1.08,x:0}};
+ const tr=[{x:s.y,y:s.v,mode:'lines+markers',name:'Inflación anual',line:{color:'#315B4B',width:2},marker:{size:5},hovertemplate:'%%{x}: %%{y:.1f}%%<extra></extra>'}];
+ if(wy.length>=5){const [b,a]=ols(wy,wv);tr.push({x:[2000,2020],y:[a+b*2000,a+b*2020],mode:'lines',name:'Tendencia OLS 2000-2020',line:{color:'#C2577A',dash:'dash',width:2},hoverinfo:'skip'})}
+ const lay={height:400,margin:{l:56,r:16,t:20,b:40},paper_bgcolor:'#FFFDFA',plot_bgcolor:'#FFFDFA',font:{family:'system-ui,sans-serif',size:12},
+  shapes:[{type:'rect',xref:'x',yref:'paper',x0:1999.5,x1:2020.5,y0:0,y1:1,fillcolor:'#F1EBE3',line:{width:0},layer:'below'}],
+  xaxis:{range:[1997.5,2024.5],gridcolor:'#E8E0D5'},yaxis:{title:{text:'Inflación anual (%%)'},gridcolor:'#E8E0D5',zerolinecolor:'#CFC4B6'},legend:{orientation:'h',y:1.08,x:0}};
  Plotly.react('ctychart',tr,lay,CFG);
  const c=document.getElementById('ctycard');
- if(s.media===undefined){c.innerHTML=`<div class="kpi"><b>${s.n}</b><span>${s.r}</span></div><p style="font-size:14px;color:#52514e">Menos de 5 años con dato en 2000-2020: no se calcula la trayectoria. ${s.g?'Grupo monetario-fiscal: '+s.g+'.':''}</p>`;return;}
+ if(s.media===undefined){c.innerHTML=`<div class="kpi"><b>${s.n}</b><span>${s.r}</span></div><p style="font-size:14px;color:#4E5A54">Menos de 5 años con dato en 2000-2020: no se calcula la trayectoria. ${s.g?'Grupo monetario-fiscal: '+s.g+'.':''}</p>`;return;}
  c.innerHTML=`<div class="kpi" style="margin-bottom:10px"><b style="font-size:20px">${s.n}</b><span>${s.r}${s.g?' · grupo '+s.g:' · fuera del clustering (atípico o excluido)'}</span></div>
  <div class="kpi" style="margin-bottom:10px"><b>${nf(s.media)}%%</b><span>inflación media 2000-2020 · percentil ${s.p_media}</span></div>
  <div class="kpi" style="margin-bottom:10px"><b>${s.tendencia>0?'+':''}${nf(s.tendencia,2)}</b><span>tendencia (p.p. por año) · percentil ${s.p_tendencia}</span></div>
@@ -378,7 +378,7 @@ for esc in ["original", "transformada"]:
         v = tgt.loc[model_idx, s].dropna()
         v = TRF[s](v) if esc == "transformada" else v
         sk = DST.query("estadistico == @s and escala == @esc")["asimetria"].iloc[0]
-        f.add_histogram(x=v, nbinsx=35, marker_color=CATEGORICAL[0], marker_line=dict(color="#fcfcfb", width=0.5), showlegend=False,
+        f.add_histogram(x=v, nbinsx=35, marker_color=CATEGORICAL[0], marker_line=dict(color="#FFFDFA", width=0.5), showlegend=False,
                         hovertemplate="%{x}: %{y} países<extra></extra>", row=1, col=j + 1)
         f.add_annotation(text=f"asimetría {fmt(sk, 2)}", xref=f"x{j + 1 if j else ''} domain", yref=f"y{j + 1 if j else ''} domain",
                          x=0.98, y=0.95, showarrow=False, xanchor="right", font=dict(size=11, color=INK_SECONDARY))
@@ -401,7 +401,7 @@ pc1 = rho.iloc[3:, 3:].where(~np.eye(4, dtype=bool)).abs()
 counts = [(lab, int(EX[k].sum()), tr) for k, lab, tr in RULES]
 f = go.Figure(go.Bar(y=[c[0] for c in counts], x=[c[1] for c in counts], orientation="h", text=[c[1] for c in counts], textposition="outside",
                      marker_color=[EXCL_COLOR if c[2] == "excluye" else KEEP_COLOR for c in counts], hovertemplate="%{y}: %{x} países<extra></extra>"))
-f.update_layout(yaxis=dict(autorange="reversed", showgrid=False), xaxis_title="Países marcados", margin=dict(l=280))
+f.update_layout(yaxis=dict(autorange="reversed", showgrid=False), xaxis=dict(title="Países marcados", range=[0, max(c[1] for c in counts) * 1.15]), margin=dict(l=280))
 figs["rules"] = fig_json(f, 360)
 figs["rules"]["layout"]["margin"]["l"] = 280
 
@@ -410,17 +410,17 @@ flag = EX[EX[[k for k, _, _ in RULES]].any(axis=1)].copy()
 flag = flag.assign(_e=flag[[k for k, _, tr in RULES if tr == "excluye"]].any(axis=1)).sort_values(["_e", "n_reglas"], ascending=[False, False])
 z = np.array([[(1 if tr == "excluye" else 0.5) if flag.loc[i, k] else 0 for k, _, tr in RULES] for i in flag.index])
 f = go.Figure(go.Heatmap(z=z, x=[lab for _, lab, _ in RULES], y=[M.loc[i, "corto"] for i in flag.index], zmin=0, zmax=1, showscale=False, xgap=2, ygap=2,
-                         colorscale=[[0, "#efeee9"], [0.5, KEEP_COLOR], [0.75, KEEP_COLOR], [0.76, EXCL_COLOR], [1, EXCL_COLOR]],
+                         colorscale=[[0, "#EFE9E1"], [0.5, KEEP_COLOR], [0.75, KEEP_COLOR], [0.76, EXCL_COLOR], [1, EXCL_COLOR]],
                          customdata=np.array([[flag.loc[i, "tratamiento"]] * len(RULES) for i in flag.index]),
                          hovertemplate="%{y} · %{x}<br>%{customdata}<extra></extra>"))
 f.update_layout(xaxis=dict(side="top", tickangle=-35, showgrid=False), yaxis=dict(autorange="reversed", showgrid=False, dtick=1), margin=dict(l=170, t=190))
 figs["matrix"] = fig_json(f, max(500, 17 * len(flag) + 200))
-figs["matrix"]["layout"]["margin"].update(l=170, t=190)
+figs["matrix"]["layout"]["margin"].update(l=170, t=190, r=110)
 
 # Perfil monetario atípico: distancia al centroide y umbral de Tukey
 dd = EX["distancia_perfil"].dropna().sort_values(ascending=False)
 thr = summ_cl["umbral_tukey"]
-f = go.Figure(go.Bar(x=[M.loc[i, "corto"] for i in dd.index], y=dd.values, marker_color=[EXCL_COLOR if v > thr else "#c3c2b7" for v in dd.values],
+f = go.Figure(go.Bar(x=[M.loc[i, "corto"] for i in dd.index], y=dd.values, marker_color=[EXCL_COLOR if v > thr else "#CFC4B6" for v in dd.values],
                      hovertemplate="%{x}: %{y:.1f}<extra></extra>"))
 f.add_hline(y=thr, line=dict(color=INK_SECONDARY, dash="dash", width=1), annotation_text="Q3 + 1,5·RIC", annotation_position="top right")
 f.update_layout(xaxis=dict(showticklabels=False, title=f"{len(dd)} países, ordenados"), yaxis_title="Distancia al centroide (componentes monetarios)", bargap=0.1)
@@ -430,7 +430,7 @@ figs["tukey"] = fig_json(f, 360)
 yrs = EX["n_anios_ipc"].fillna(0).sort_values()
 min_t = P["trayectorias"]["min_anios_target"]
 f = go.Figure(go.Bar(x=[M.loc[i, "corto"] for i in yrs.index], y=yrs.values, hovertemplate="%{x}: %{y} años<extra></extra>",
-                     marker_color=[EXCL_COLOR if v < min_t else "#c3c2b7" for v in yrs.values]))
+                     marker_color=[EXCL_COLOR if v < min_t else "#CFC4B6" for v in yrs.values]))
 f.add_hline(y=min_t, line=dict(color=INK_SECONDARY, dash="dash", width=1), annotation_text=f"mínimo: {min_t} años (60%)", annotation_position="top left")
 f.update_layout(xaxis=dict(showticklabels=False, title="193 países, ordenados"), yaxis=dict(title="Años con IPC en 2000-2020", range=[0, 22]), bargap=0.1)
 figs["years"] = fig_json(f, 340)
@@ -444,11 +444,11 @@ for fac, dash in [(1, "solid"), (2, "dot"), (0.5, "dot")]:
     f.add_scatter(x=[lo, hi], y=[lo * fac, hi * fac], mode="lines", line=dict(color=INK_MUTED, width=1, dash=dash), showlegend=False, hoverinfo="skip")
 g = g.assign(ratio=np.abs(np.log(g["media_deflactor"] / g["media"])))
 top_gap = set(g[g["brecha_deflactor"]].nlargest(5, "ratio").index)
-for gap, col, name in [(False, "#c3c2b7", "Coinciden (dentro de 2×)"), (True, EXCL_COLOR, "Difieren más de 2×")]:
+for gap, col, name in [(False, "#CFC4B6", "Coinciden (dentro de 2×)"), (True, EXCL_COLOR, "Difieren más de 2×")]:
     h = g[g["brecha_deflactor"] == gap]
     f.add_scatter(x=h["media"], y=h["media_deflactor"], mode="markers+text" if gap else "markers", name=name,
                   text=[es(i) if i in top_gap else "" for i in h.index] if gap else None, textposition=["top center", "bottom center", "middle left", "top right", "bottom right"] * 4 if gap else "top center", textfont=dict(size=10),
-                  marker=dict(color=col, size=8, line=dict(color="#fcfcfb", width=1)), customdata=[M.loc[i, "pais"] for i in h.index],
+                  marker=dict(color=col, size=8, line=dict(color="#FFFDFA", width=1)), customdata=[M.loc[i, "pais"] for i in h.index],
                   hovertemplate="%{customdata}<br>IPC %{x:.1f}% · deflactor %{y:.1f}%<extra></extra>")
 tk = [0.1, 1, 10, 100, 1000, 10000]
 f.update_layout(xaxis=dict(type="log", title="Inflación media según IPC (%)", tickvals=tk, ticktext=["0,1", "1", "10", "100", "1.000", "10.000"]),
@@ -460,7 +460,7 @@ figs["gap"] = fig_json(f, 440)
 for s in ["media", "volatilidad"]:
     c = EX[f"cook_{s}"].dropna().sort_values(ascending=False)
     lim = 4 / len(c)
-    f = go.Figure(go.Bar(x=[M.loc[i, "corto"] for i in c.index], y=c.values, marker_color=[CATEGORICAL[2] if v > lim else "#c3c2b7" for v in c.values],
+    f = go.Figure(go.Bar(x=[M.loc[i, "corto"] for i in c.index], y=c.values, marker_color=[CATEGORICAL[2] if v > lim else "#CFC4B6" for v in c.values],
                          hovertemplate="%{x}: %{y:.3f}<extra></extra>"))
     f.add_hline(y=lim, line=dict(color=INK_SECONDARY, dash="dash", width=1), annotation_text="4/n", annotation_position="top right")
     f.update_layout(xaxis=dict(tickangle=-60, range=[-0.5, 30.5]), yaxis_title="Distancia de Cook", bargap=0.15)
@@ -548,7 +548,7 @@ body += card("corr", "Relaciones entre la inflación y las cuatro dimensiones",
                    "de desarrollo. Esto anticipa que será difícil atribuir un efecto a una sola dimensión, y justifica contrastar los bloques en conjunto (H3)."),
              height=480)
 body += card("rules", "Ocho reglas para detectar casos extremos",
-             "Cantidad de países que marca cada regla. En naranja, las reglas que excluyen al país de los modelos principales; en azul, las que lo mantienen con pruebas de robustez.",
+             "Cantidad de países que marca cada regla. En rojo, las reglas que excluyen al país de los modelos principales; en verde, las que lo mantienen con pruebas de robustez.",
              read=("<b>Lectura.</b> Solo se excluye un país cuando falta información para medirlo (features o IPC insuficientes) o cuando su perfil monetario está tan alejado "
                    "del resto que distorsionaría los grupos. La inflación alta, por sí sola, nunca es motivo de exclusión: es parte del fenómeno a explicar."),
              height=360)
@@ -559,7 +559,7 @@ body += card("matrix", "Mapa de casos extremos: qué regla marca a cada país",
                    "termina justo antes de su hiperinflación."),
              full=True, height=max(500, 17 * len(flag) + 200))
 body += card("years", "Cobertura temporal de la inflación",
-             "Años con dato de IPC entre 2000 y 2020 por país. En naranja, los que no alcanzan el mínimo exigido.",
+             "Años con dato de IPC entre 2000 y 2020 por país. En rojo, los que no alcanzan el mínimo exigido.",
              read=(f"<b>Lectura.</b> La gran mayoría de los países tiene la serie completa. Se exige el mismo 60% de los años que a las features ({min_t} de 21): con menos, "
                    "la media no describe la trayectoria del período. El caso que motiva la regla es Venezuela: su IPC cubre solo 2009-2016, los años previos a la hiperinflación, de modo que su "
                    "media (73%) no refleja lo que ocurrió después."),
@@ -582,7 +582,7 @@ body += card("cook", "Influencia de cada país en el modelo de H3",
                    "inflación muy baja. Que influyan no significa que deban excluirse; significa que hay que comprobar que el resultado no depende de ellos."),
              height=380)
 body += card("sens", "¿Depende H3 del tratamiento de los extremos?",
-             "Mejora del R² ajustado al sumar las dimensiones no monetarias, en cada especificación (punto e intervalo bootstrap del 95%). En verde, el rango al quitar los países de a uno.",
+             "Mejora del R² ajustado al sumar las dimensiones no monetarias, en cada especificación (punto e intervalo bootstrap del 95%). En azul, el rango al quitar los países de a uno.",
              read=(f"<b>Resultado.</b> {sens_txt} Sin los países influyentes, la mejora en el nivel "
                    f"pasa de {fmt(sm_.loc[('media', 'principal'), 'delta_r2adj'], 3)} a {fmt(sm_.loc[('media', 'sin_influyentes'), 'delta_r2adj'], 3)}; al quitar cualquier país "
                    f"va de {fmt(sm_.loc[('media', 'jackknife_min'), 'delta_r2adj'], 3)} a {fmt(sm_.loc[('media', 'jackknife_max'), 'delta_r2adj'], 3)}. Los extremos no sostienen el "
@@ -605,10 +605,10 @@ tgt = targets.load("principal")
 sizes = labels.value_counts()
 m = go.Figure(go.Choropleth(locations=labels.index, z=[ORDER.index(int(k)) for k in labels], text=[NAMES[int(k)] for k in labels],
                             colorscale=[[i / 4, GCOL[k]] for i, k in enumerate(ORDER)], zmin=0, zmax=4, showscale=False,
-                            hovertemplate="%{location} · %{text}<extra></extra>", marker_line_color="#fcfcfb", marker_line_width=0.4))
+                            hovertemplate="%{location} · %{text}<extra></extra>", marker_line_color="#FFFDFA", marker_line_width=0.4))
 for k in ORDER:
     m.add_scatter(x=[None], y=[None], mode="markers", marker=dict(size=10, color=GCOL[k], symbol="square"), name=f"{NAMES[k]} ({sizes[k]})")
-m.update_layout(geo=dict(showframe=False, showcoastlines=False, projection_type="natural earth", bgcolor="rgba(0,0,0,0)", landcolor="#efeee9", showland=True),
+m.update_layout(geo=dict(showframe=False, showcoastlines=False, projection_type="natural earth", bgcolor="rgba(0,0,0,0)", landcolor="#EFE9E1", showland=True),
                 xaxis=dict(visible=False), yaxis=dict(visible=False), legend=dict(orientation="h", y=-0.02))
 figs["groupmap"] = fig_json(m, 460)
 figs["groupmap"]["layout"]["margin"] = dict(l=0, r=0, t=10, b=10)
@@ -649,7 +649,7 @@ tests = pd.read_csv(D / "h1_tests.csv")
 f = go.Figure()
 f.add_bar(y=[TIT[s] for s in tests["estadistico"]], x=100 * tests["eta2_transformado"], orientation="h", name="Entre grupos", marker_color=CATEGORICAL[0],
           text=[f"{fmt(100 * v, 0)}%" for v in tests["eta2_transformado"]], textposition="inside", hovertemplate="%{y}: %{x:.1f}% entre grupos<extra></extra>")
-f.add_bar(y=[TIT[s] for s in tests["estadistico"]], x=100 * (1 - tests["eta2_transformado"]), orientation="h", name="Dentro de los grupos", marker_color="#c3c2b7",
+f.add_bar(y=[TIT[s] for s in tests["estadistico"]], x=100 * (1 - tests["eta2_transformado"]), orientation="h", name="Dentro de los grupos", marker_color="#CFC4B6",
           text=[f"{fmt(100 * (1 - v), 0)}%" for v in tests["eta2_transformado"]], textposition="inside", hovertemplate="%{y}: %{x:.1f}% dentro de los grupos<extra></extra>")
 f.update_layout(barmode="stack", xaxis=dict(range=[0, 100], title="% de la variación total"), yaxis=dict(autorange="reversed", showgrid=False), bargap=0.4, margin=dict(l=170))
 figs["decomp"] = fig_json(f, 300)
@@ -658,7 +658,7 @@ figs["decomp"]["layout"]["margin"]["l"] = 170
 reg_ref = pd.read_csv(D / "h1_region.csv").set_index("estadistico")
 f = go.Figure()
 for j, (col, lab) in enumerate([("eta2_perfil", "Perfil monetario-fiscal (5 grupos)"), ("eta2_region", "Región ONU (5 regiones)")]):
-    f.add_bar(x=[STAT[s] for s in reg_ref.index], y=100 * reg_ref[col], name=lab, marker_color=[CATEGORICAL[0], "#c3c2b7"][j],
+    f.add_bar(x=[STAT[s] for s in reg_ref.index], y=100 * reg_ref[col], name=lab, marker_color=[CATEGORICAL[0], "#CFC4B6"][j],
               text=[f"{fmt(100 * v, 0)}%" for v in reg_ref[col]], textposition="outside", hovertemplate="%{x} · " + lab + ": %{y:.1f}%<extra></extra>")
 f.update_layout(barmode="group", yaxis=dict(title="% de la variación explicada (η²)", range=[0, 50]), legend=dict(orientation="h", y=1.1, x=0))
 figs["region"] = fig_json(f, 340)
@@ -683,7 +683,7 @@ f.add_hrect(y0=P["clustering"]["ari_minimo"], y1=1.02, fillcolor=NEUTRAL, line_w
 show_lab = ch | (grid["silhouette"] == grid["silhouette"].max())
 f.add_scatter(x=grid["silhouette"], y=grid["ari_bootstrap"], mode="markers+text", text=np.where(show_lab, grid["config"], ""), customdata=grid["config"],
               textposition="top left", textfont=dict(size=11, color=INK_SECONDARY),
-              marker=dict(size=np.where(ch, 16, 10), color=np.where(ch, CATEGORICAL[1], CATEGORICAL[0]), line=dict(color="#fcfcfb", width=2)),
+              marker=dict(size=np.where(ch, 16, 10), color=np.where(ch, CATEGORICAL[1], CATEGORICAL[0]), line=dict(color="#FFFDFA", width=2)),
               hovertemplate="%{customdata}<br>silhouette %{x:.3f} · ARI %{y:.2f}<extra></extra>", showlegend=False)
 f.update_layout(xaxis_title="Silhouette (separación entre grupos)", yaxis=dict(title="ARI bootstrap (estabilidad)", range=[0, 1.05]))
 figs["stab"] = fig_json(f, 420)
@@ -725,7 +725,7 @@ body += card("sens", "¿Depende el resultado del algoritmo elegido?",
              foot="Los valores más bajos corresponden a soluciones jerárquicas inestables.", height=460)
 body += card("stab", "Calidad vs. estabilidad: cómo se eligió la configuración",
              "Las 12 mejores configuraciones según silhouette, frente a su estabilidad cuando se vuelve a agrupar con submuestras del 80% de los países.",
-             read=f"<b>Lectura.</b> Todas las silhouettes son bajas (≤ {fmt(grid['silhouette'].max(), 2)}): los perfiles forman un continuo más que tipos discretos. La regla, fijada antes de ver los resultados, exige estabilidad (ARI ≥ {fmt(P['clustering']['ari_minimo'], 2)}, zona gris) y grupos de al menos {P['clustering']['tamanio_minimo']} países, y elige K-means con k = {summ_cl['config']['k']} (naranja, ARI {fmt(summ_cl['config']['ari_bootstrap'], 2)}).",
+             read=f"<b>Lectura.</b> Todas las silhouettes son bajas (≤ {fmt(grid['silhouette'].max(), 2)}): los perfiles forman un continuo más que tipos discretos. La regla, fijada antes de ver los resultados, exige estabilidad (ARI ≥ {fmt(P['clustering']['ari_minimo'], 2)}, zona gris) y grupos de al menos {P['clustering']['tamanio_minimo']} países, y elige K-means con k = {summ_cl['config']['k']} (en rosa, ARI {fmt(summ_cl['config']['ari_bootstrap'], 2)}).",
              foot=(f"GMM tied con k = 4, la configuración de la versión original de la tesis, tiene ARI {fmt(gmm4['ari_bootstrap'].iloc[0], 2)}." if len(gmm4) else ""), height=420)
 body += "</div>"
 (OUT / "05_h1_perfiles.html").write_text(page("05_h1_perfiles.html", "H1 · Perfiles monetario-fiscales y heterogeneidad inflacionaria",
@@ -740,11 +740,11 @@ diag = pd.read_csv(D / "reg_diagnosticos.csv")
 f = go.Figure()
 for stat, g in diag.groupby("estadistico", sort=False):
     g = g.set_index("modelo")
-    f.add_scatter(x=[g.loc["A", "r2adj"], g.loc["B", "r2adj"]], y=[STAT[stat]] * 2, mode="lines", line=dict(color="#c3c2b7", width=4), showlegend=False, hoverinfo="skip")
+    f.add_scatter(x=[g.loc["A", "r2adj"], g.loc["B", "r2adj"]], y=[STAT[stat]] * 2, mode="lines", line=dict(color="#CFC4B6", width=4), showlegend=False, hoverinfo="skip")
 for j, (mod, lab) in enumerate([("A", "Modelo A · solo monetario"), ("B", "Modelo B · cuatro dimensiones")]):
     g = diag[diag["modelo"] == mod]
     f.add_scatter(x=g["r2adj"], y=g["estadistico"].map(STAT), mode="markers+text", name=lab, text=[fmt(v, 2) for v in g["r2adj"]],
-                  textposition="top center" if mod == "B" else "bottom center", marker=dict(size=15, color=CATEGORICAL[j], line=dict(color="#fcfcfb", width=2)),
+                  textposition="top center" if mod == "B" else "bottom center", marker=dict(size=15, color=CATEGORICAL[j], line=dict(color="#FFFDFA", width=2)),
                   hovertemplate="%{y} · " + lab + ": %{x:.3f}<extra></extra>")
 f.update_layout(xaxis=dict(title="R² ajustado", range=[0, 0.5]), yaxis=dict(autorange="reversed", showgrid=False))
 figs["r2"] = fig_json(f, 340)
@@ -763,7 +763,7 @@ RR["nivel"] = np.where(RR["solido"], 2, np.where(RR[["p", "p_HC3", "p_permutacio
 order = RR.drop_duplicates("prueba")["prueba"].tolist()
 Mv = RR.pivot(index="prueba", columns="spec", values="nivel").loc[order, list(VAR.values())]
 Pp = RR.pivot(index="prueba", columns="spec", values="p_HC3_holm").loc[order, list(VAR.values())]
-cs = [[0, "#fcfcfb"], [0.333, "#fcfcfb"], [0.334, "#cde2fb"], [0.666, "#cde2fb"], [0.667, "#184f95"], [1, "#184f95"]]
+cs = [[0, "#FFFDFA"], [0.333, "#FFFDFA"], [0.334, "#E4EDE8"], [0.666, "#E4EDE8"], [0.667, "#315B4B"], [1, "#315B4B"]]
 f = go.Figure(go.Heatmap(z=Mv.values, x=list(Mv.columns), y=list(Mv.index), zmin=-0.5, zmax=2.5, colorscale=cs, text=Pp.map(lambda v: fmt(v, 3)).values,
                          texttemplate="%{text}", xgap=2, ygap=2, hovertemplate="%{y} · %{x}<br>p HC3 corregido por Holm: %{text}<extra></extra>",
                          colorbar=dict(tickvals=[0, 1, 2], ticktext=["Sin evidencia", "Indicio", "Sólido"], thickness=10)))
@@ -874,7 +874,7 @@ body = (f'<div class="objective"><h2>Pregunta de investigación</h2><p>¿En qué
         + kpis([(str(summ_feat["paises_analisis"]), "países"), (str(n_ind), "indicadores"), ("3", "fuentes"), ("21", "años"), ("3", "hipótesis")]) + verdicts
         + '<h2 style="font-size:20px;margin:28px 0 12px">Análisis exploratorio</h2>' + tile_html(tiles[:4])
         + '<h2 style="font-size:20px;margin:28px 0 12px">Modelado</h2>' + tile_html(tiles[4:])
-        + '<div class="card" style="margin-top:24px"><h3>Método en cinco pasos</h3><ol style="margin:6px 0 0;padding-left:20px;font-size:14px;color:#52514e">'
+        + '<div class="card" style="margin-top:24px"><h3>Método en cinco pasos</h3><ol style="margin:6px 0 0;padding-left:20px;font-size:14px;color:#4E5A54">'
           '<li>Construcción de una base país-año con WDI, V-Dem y WITS, estandarizada a los 193 miembros de la ONU, sin variables con relación mecánica con la inflación.</li>'
           '<li>Clasificación de cada indicador en una dimensión teórica con un LLM de pesos abiertos (Groq), validada contra una muestra manual.</li>'
           '<li>Resumen de cada serie 2000-2020 en nivel, tendencia y volatilidad; imputación KNN; PCA por dimensión; análisis de distribuciones y casos extremos.</li>'

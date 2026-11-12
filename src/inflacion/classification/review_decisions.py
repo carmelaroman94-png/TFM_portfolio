@@ -1,8 +1,8 @@
 """Resolución de los indicadores sin acuerdo entre las dos corridas del LLM (codebook v2).
 
-Cada decisión cita la regla del codebook aplicada. Revisión realizada por Claude (asistente IA)
-a pedido de la autora, aplicando el codebook v2; queda etiquetada como "clasificacion manual"
-en la columna `metodo` y con el revisor identificado en `revisor`.
+Cada decisión cita la regla del codebook aplicada. Revisión asistida por IA y validada por la autora,
+aplicando el codebook v2; queda etiquetada como "clasificacion manual" en la columna `metodo`
+y con el procedimiento identificado en `revisor`.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import re
 
 import pandas as pd
 
-REVISOR = "Claude (asistente IA) - codebook v2"
+REVISOR = "Revisión asistida por IA, validada por la autora - codebook v2"
 
 RULES: list[tuple[str, str, str]] = [
     # (regex sobre código, dimensión, justificación)

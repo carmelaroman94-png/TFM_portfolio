@@ -8,27 +8,28 @@ from __future__ import annotations
 import plotly.graph_objects as go
 import plotly.io as pio
 
-SURFACE = "#fcfcfb"
-INK = "#0b0b0b"
-INK_SECONDARY = "#52514e"
-INK_MUTED = "#898781"
-GRID = "#e1e0d9"
-AXIS = "#c3c2b7"
-NEUTRAL = "#f0efec"
+# Identidad visual del portfolio: carbón #26352F, musgo #315B4B, rosa #D88EA3, crema #F8F3ED, arena #D8C7B5.
+SURFACE = "#FFFDFA"
+INK = "#1E2A25"
+INK_SECONDARY = "#4E5A54"
+INK_MUTED = "#8A8F88"
+GRID = "#E8E0D5"
+AXIS = "#CFC4B6"
+NEUTRAL = "#F1EBE3"
 
 CATEGORICAL = [
-    "#2a78d6",  # azul
-    "#eb6834",  # naranja
-    "#1baf7a",  # aqua
-    "#eda100",  # amarillo
-    "#e87ba4",  # magenta
-    "#008300",  # verde
-    "#6250d6",  # violeta
-    "#e34948",  # rojo
+    "#315B4B",  # musgo (serie principal)
+    "#C2577A",  # rosa (destacado)
+    "#3D7EA6",  # azul
+    "#C08A2E",  # ocre
+    "#7B5EA7",  # ciruela
+    "#7FA88F",  # salvia
+    "#B05D3B",  # terracota
+    "#B03A48",  # rojo ladrillo (excluidos)
 ]
 
-SEQUENTIAL_BLUE = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
-DIVERGING = [[0.0, "#184f95"], [0.5, NEUTRAL], [1.0, "#b8302f"]]
+SEQUENTIAL_BLUE = ["#E4EDE8", "#C2D6CB", "#97B9A8", "#6B9A84", "#477A65", "#315B4B", "#1E3A2F"]
+DIVERGING = [[0.0, "#315B4B"], [0.5, NEUTRAL], [1.0, "#C2577A"]]
 
 DIMENSION_COLORS = {
     "MONETARIA": CATEGORICAL[0],
@@ -37,7 +38,7 @@ DIMENSION_COLORS = {
     "SOCIODEMOGRAFICA": CATEGORICAL[3],
 }
 
-FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif'
+FONT = '"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif'
 
 
 def _template() -> go.layout.Template:
