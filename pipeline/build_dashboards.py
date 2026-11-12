@@ -12,7 +12,6 @@ from plotly.subplots import make_subplots
 from inflacion.classification.evaluation import confusion
 from inflacion.config import Paths, load_params
 from inflacion.dashboard import card, fig_json, kpis, page, seg
-from inflacion.regression import n_components_floor
 from inflacion.sources.countries import un_members
 from inflacion.viz import CATEGORICAL, DIM_LABELS, DIMENSION_COLORS, apply_theme
 from inflacion.viz.theme import DIVERGING, INK_MUTED, INK_SECONDARY, NEUTRAL, SEQUENTIAL_BLUE
@@ -515,7 +514,7 @@ pca = pickle.load(open(D / "pca_resultados.pkl", "rb"))
 scores = pd.read_parquet(D / "pca_scores.parquet")
 import statsmodels.api as sm
 ym = np.log(target.loc[labels.index, "media"].dropna())
-cols = [f"{d}_media__PC{i + 1}" for d in DIMENSION_COLORS for i in range(n_components_floor(pca[f"{d}_media"].varianza, 0.30))]
+cols = [f"{d}_media__PC{i + 1}" for d in DIMENSION_COLORS for i in range(min(P["regresion"]["componentes_por_bloque"], pca[f"{d}_media"].n_componentes))]
 fit = sm.OLS(ym, sm.add_constant(scores.loc[ym.index, cols])).fit(cov_type="HC3")
 cf = pd.DataFrame({"coef": fit.params, "se": fit.bse, "p": fit.pvalues}).drop("const")
 cf["dim"] = cf.index.str.split("_").str[0]

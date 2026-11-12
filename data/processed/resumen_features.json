@@ -1,7 +1,7 @@
 {
-  "indicadores_candidatos": 1017,
-  "indicadores_cumplen_umbral": 560,
-  "features": 1680,
+  "indicadores_candidatos": 1010,
+  "indicadores_cumplen_umbral": 553,
+  "features": 1659,
   "paises_excluidos": {
     "NRU": 46.2,
     "AND": 58.0,
@@ -16,7 +16,7 @@
   },
   "paises_analisis": 183,
   "missing_medio_pct_antes": 8.71,
-  "missing_medio_pct_despues": 6.38,
+  "missing_medio_pct_despues": 6.31,
   "k_knn": 8,
-  "rmse_cv": 0.86
+  "rmse_cv": 0.859
 }

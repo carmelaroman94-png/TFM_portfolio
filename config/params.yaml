@@ -47,7 +47,10 @@ pca:
   min_variables: 15
 
 regresion:
-  piso_varianza_componentes: 0.30
+  # Mismo número de componentes por dimensión: grados de libertad comparables entre bloques en H2 y H3.
+  # 4 es el máximo que respeta 10 observaciones por predictor con cuatro bloques (n ≈ 171).
+  componentes_por_bloque: 4
+  sensibilidad_componentes: [2, 3, 4]
   obs_por_predictor: 10
   alpha: 0.05
   n_bootstrap: 2000
@@ -58,10 +61,6 @@ clustering:
   covarianzas_gmm: [diag, tied, spherical]
   tamanio_minimo: 5
   ari_minimo: 0.60
-  final:
-    algoritmo: GMM
-    covarianza: tied
-    k: 4
 
 clasificacion:
   codebook: v2
@@ -70,17 +69,26 @@ clasificacion:
   excluir_ambiguo: true
   # Asignaciones teóricas fijas: prevalecen sobre el LLM y quedan protegidas en la poda previa al PCA.
   variables_protegidas:
-    MONETARIA: [FR.INR.DPST, FR.INR.LEND, FR.INR.RINR, FM.LBL.BMNY.GD.ZS, FM.LBL.BMNY.ZG,
-                FM.LBL.BMNY.IR.ZS, FM.AST.CGOV.ZG.M3, FM.AST.PRVT.ZG.M3]
+    MONETARIA: [FM.LBL.BMNY.GD.ZS, FM.LBL.BMNY.ZG, FM.LBL.BMNY.IR.ZS, FM.AST.CGOV.ZG.M3, FM.AST.PRVT.ZG.M3]
     INSTITUCIONAL: [GOV_WGI_RQ_SC, GOV_WGI_RL_SC, GOV_WGI_CC_SC]
     ESTRUCTURAL: [NE.TRD.GNFS.ZS, NE.EXP.GNFS.ZS, NE.IMP.GNFS.ZS, BX.KLT.DINV.WD.GD.ZS]
     SOCIODEMOGRAFICA: [SP.POP.GROW, SP.DYN.LE00.IN, SL.UEM.TOTL.ZS]
 
+fugas:
+  # Relación mecánica con la variable dependiente: la tasa real se calcula restando la inflación del deflactor.
+  excluir: [FR.INR.RINR]
+  # Las tasas nominales incorporan la inflación esperada (efecto Fisher): fuera de la especificación principal,
+  # se reincorporan al control monetario como análisis de sensibilidad.
+  tasas_nominales: [FR.INR.DPST, FR.INR.LEND]
+
 comparabilidad:
   # Niveles absolutos que escalan con el tamaño del país o dependen de la moneda local.
+  # Las series en moneda local (LCU) se excluyen aunque sean per cápita: no son comparables entre países
+  # y, a precios corrientes, su crecimiento incluye la propia inflación.
+  patron_moneda_local: '\bLCU\b'
   tokens_codigo_absoluto: [CD, KD, CN, KN]
   patron_nombre_absoluto: '^Number of|\(number\)|\(people\)|\bMt\b|sq\. km|billion cubic|\(kt\)|metric tons\)|LCU per|^Population, total|Population ages .* total$|\(constant .*US\$\)|\(current US\$\)|\(current LCU\)|\(constant LCU\)|\(hectares\)|\(kWh\)|ton-km|^Population(,| ages| in largest)|^(Rural|Urban) population$|pupils$|teachers$|out of school, primary$|subscriptions$|passengers carried|departures worldwide|number of arrivals|^Patent applications|journal articles$|personnel, total|^Labor force, total$|^Asylum-seekers|^Refugees under'
   patron_nombre_relativo: 'per capita|per 1|%|\(per '
 
 portfolio:
-  repo_url: https://github.com/carmelaroman94-png/tfm-inflacion
+  repo_url: https://github.com/carmelaroman94-png/TFM_portfolio

@@ -1,5 +1,6 @@
 """Filtro de cobertura, trayectorias país-indicador, exclusión de países e imputación."""
 import json
+import sys
 
 import pandas as pd
 
@@ -13,32 +14,53 @@ YEARS = range(P["periodo"]["inicio"], P["periodo"]["fin"] + 1)
 STATS = P["trayectorias"]["estadisticos"]
 OUT = Paths.processed
 
-panel = pd.read_parquet(OUT / "panel_largo.parquet")
-members = un_members()
-targets = {"principal": P["targets"]["principal"], "secundario": P["targets"]["secundario"]}
+included = pd.read_csv(OUT / "classification" / "clasificacion_final.csv").query("incluir")["codigo"]
+FROM_RAW = "--desde-crudas" in sys.argv
 
-cov = ft.coverage(panel, P["universo"]["n_paises"], YEARS)
-dims = panel.drop_duplicates("codigo").set_index("codigo")[["fuente", "dimension"]]
-cov = cov.join(dims, on="codigo")
-cov["cumple_umbral"] = (cov["pct_paises"] >= P["cobertura"]["umbral_pct_paises"]) & \
-                       (cov["pct_anios_promedio"] >= P["cobertura"]["umbral_pct_anios"])
-cov.to_csv(OUT / "cobertura_indicadores.csv", index=False)
+if FROM_RAW:
+    # Recalcula la imputación desde las features previas a imputar (misma versión de datos, sin descargar),
+    # aplicando la selección vigente de indicadores.
+    X = pd.read_parquet(OUT / "features_crudas.parquet")
+    cov = pd.read_csv(OUT / "cobertura_indicadores.csv")
+    cov = cov[cov["codigo"].isin(included) | (cov["dimension"] == "TARGET")]
+    cov.to_csv(OUT / "cobertura_indicadores.csv", index=False)
+    miss = pd.read_csv(OUT / "missingness_pais.csv", index_col="iso3")["pct_missing"]
+    previous = json.loads((OUT / "resumen_features.json").read_text(encoding="utf-8"))
+    excluded = miss[miss > P["paises"]["umbral_missingness_exclusion"]]
+    keep = cov.loc[cov["cumple_umbral"] & (cov["dimension"] != "TARGET"), "codigo"]
+else:
+    panel = pd.read_parquet(OUT / "panel_largo.parquet")
+    members = un_members()
+    targets = {"principal": P["targets"]["principal"], "secundario": P["targets"]["secundario"]}
 
-traj = ft.trajectories(panel, YEARS, P["trayectorias"]["min_anios"])
-traj.to_parquet(OUT / "trayectorias_largo.parquet", index=False)
+    cov = ft.coverage(panel, P["universo"]["n_paises"], YEARS)
+    dims = panel.drop_duplicates("codigo").set_index("codigo")[["fuente", "dimension"]]
+    cov = cov.join(dims, on="codigo")
+    cov = cov[cov["codigo"].isin(included) | (cov["dimension"] == "TARGET")]
+    cov["cumple_umbral"] = (cov["pct_paises"] >= P["cobertura"]["umbral_pct_paises"]) & \
+                           (cov["pct_anios_promedio"] >= P["cobertura"]["umbral_pct_anios"])
+    cov.to_csv(OUT / "cobertura_indicadores.csv", index=False)
 
-for name, code in targets.items():
-    t = traj[traj["codigo"] == code].set_index("iso3")[["n_anios"] + STATS]
-    if name == "principal":
-        t = t.join(ft.theil_sen_slopes(panel, code, YEARS, P["trayectorias"]["min_anios"]))
-    t.reindex(members["iso3"]).to_csv(OUT / f"target_{name}.csv", index_label="iso3")
+    traj = ft.trajectories(panel, YEARS, P["trayectorias"]["min_anios"])
+    traj.to_parquet(OUT / "trayectorias_largo.parquet", index=False)
 
-keep = cov.loc[cov["cumple_umbral"] & (cov["dimension"] != "TARGET"), "codigo"]
-X = ft.wide_features(traj[traj["codigo"].isin(keep)], STATS).reindex(members["iso3"])
+    for name, code in targets.items():
+        t = traj[traj["codigo"] == code].set_index("iso3")[["n_anios"] + STATS]
+        if name == "principal":
+            t = t.join(ft.theil_sen_slopes(panel, code, YEARS, P["trayectorias"]["min_anios"]))
+        t.reindex(members["iso3"]).to_csv(OUT / f"target_{name}.csv", index_label="iso3")
 
-miss = pp.country_missingness(X)
-excluded = miss[miss > P["paises"]["umbral_missingness_exclusion"]]
-X = X.drop(excluded.index)
+    keep = cov.loc[cov["cumple_umbral"] & (cov["dimension"] != "TARGET"), "codigo"]
+    rates = traj["codigo"].isin(P["fugas"]["tasas_nominales"])
+    X = ft.wide_features(traj[traj["codigo"].isin(keep) | rates], STATS).reindex(members["iso3"])
+    miss = pp.country_missingness(X)
+    excluded = miss[miss > P["paises"]["umbral_missingness_exclusion"]]
+    X = X.drop(excluded.index)
+
+nominal = [c for c in X.columns if c.rsplit("__", 1)[0] in P["fugas"]["tasas_nominales"]]
+if nominal:
+    X[nominal].to_parquet(OUT / "features_tasas_nominales.parquet")
+X = X.loc[:, [c for c in X.columns if c.rsplit("__", 1)[0] in set(keep)]]
 X = X.loc[:, X.notna().any()]
 Z, mu, sd = pp.standardize(X)
 Z = Z.loc[:, sd.notna()]
@@ -51,7 +73,8 @@ Zi = pp.knn_impute(Z, k)
 X.to_parquet(OUT / "features_crudas.parquet")
 Zi.to_parquet(OUT / "features_imputadas_z.parquet")
 cv.to_csv(OUT / "imputacion_cv.csv", index=False)
-miss.rename("pct_missing").to_csv(OUT / "missingness_pais.csv", index_label="iso3")
+if not FROM_RAW:
+    miss.rename("pct_missing").to_csv(OUT / "missingness_pais.csv", index_label="iso3")
 
 summary = {
     "indicadores_candidatos": int(cov["dimension"].ne("TARGET").sum()),
@@ -59,7 +82,7 @@ summary = {
     "features": int(Z.shape[1]),
     "paises_excluidos": excluded.round(1).to_dict(),
     "paises_analisis": int(Zi.shape[0]),
-    "missing_medio_pct_antes": round(float(pp.country_missingness(ft.wide_features(traj[traj["codigo"].isin(keep)], STATS).reindex(members["iso3"])).mean()), 2),
+    "missing_medio_pct_antes": previous["missing_medio_pct_antes"] if FROM_RAW else round(float(miss.mean()), 2),
     "missing_medio_pct_despues": round(float(X.isna().mean().mean() * 100), 2),
     "k_knn": k,
     "rmse_cv": round(float(cv.iloc[0]["mean"]), 3),

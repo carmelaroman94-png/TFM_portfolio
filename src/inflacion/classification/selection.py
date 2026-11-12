@@ -10,7 +10,8 @@ def is_absolute_level(codigo: str, nombre: str, params: dict | None = None) -> b
     by_code = any(t in set(cfg["tokens_codigo_absoluto"]) for t in codigo.split("."))
     by_name = pd.Series([nombre]).str.contains(cfg["patron_nombre_absoluto"], regex=True).iloc[0]
     relative = pd.Series([nombre]).str.contains(cfg["patron_nombre_relativo"], regex=True).iloc[0]
-    return bool((by_code or by_name) and not relative)
+    local_currency = pd.Series([nombre]).str.contains(cfg["patron_moneda_local"], regex=True).iloc[0]
+    return bool(local_currency or ((by_code or by_name) and not relative))
 
 
 def finalize(df: pd.DataFrame, params: dict | None = None) -> pd.DataFrame:
@@ -33,6 +34,10 @@ def finalize(df: pd.DataFrame, params: dict | None = None) -> pd.DataFrame:
     out.loc[absolute & ~out["protegida"], "motivo_exclusion"] = "nivel_absoluto_no_comparable"
     prices = out.index.isin(params["targets"]["excluir_de_features"])
     out.loc[prices, "motivo_exclusion"] = "medida_de_precios"
+    leaks = out.index.isin(params["fugas"]["excluir"])
+    out.loc[leaks, "motivo_exclusion"] = "fuga_hacia_inflacion"
+    nominal = out.index.isin(params["fugas"]["tasas_nominales"])
+    out.loc[nominal, "motivo_exclusion"] = "tasa_nominal_sensibilidad"
     if params["clasificacion"]["excluir_ambiguo"]:
         amb = (out["dimension"] == "AMBIGUO") & (out["motivo_exclusion"] == "")
         out.loc[amb, "motivo_exclusion"] = "ambiguo"

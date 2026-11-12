@@ -9,10 +9,6 @@ from statsmodels.stats.diagnostic import het_breuschpagan
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 
-def n_components_floor(var_ratio: np.ndarray, floor: float) -> int:
-    return int(np.searchsorted(np.cumsum(var_ratio), floor) + 1)
-
-
 def fit(y: pd.Series, X: pd.DataFrame, robust: bool = True):
     return sm.OLS(y, sm.add_constant(X)).fit(cov_type="HC3" if robust else "nonrobust")
 
@@ -31,6 +27,45 @@ def nested_f(y: pd.Series, X_full: pd.DataFrame, drop: list[str]) -> dict:
             "p_HC3": float(w.pvalue), "r2adj_completo": full_ols.rsquared_adj,
             "r2adj_restringido": restricted.rsquared_adj,
             "delta_r2adj": full_ols.rsquared_adj - restricted.rsquared_adj}
+
+
+def effect_size(y: pd.Series, X_full: pd.DataFrame, drop: list[str]) -> dict:
+    """f² de Cohen y R² parcial del bloque: varianza que explica sobre la que deja sin explicar el modelo restringido."""
+    full = fit(y, X_full, robust=False)
+    restricted = fit(y, X_full.drop(columns=drop), robust=False)
+    delta = full.rsquared - restricted.rsquared
+    return {"r2_completo": full.rsquared, "r2_restringido": restricted.rsquared, "delta_r2": delta,
+            "f2": delta / (1 - full.rsquared), "r2_parcial": delta / (1 - restricted.rsquared)}
+
+
+def cv_delta_r2(y: pd.Series, X_full: pd.DataFrame, drop: list[str], n_splits: int, n_rep: int, seed: int,
+                ridge: bool = False) -> pd.DataFrame:
+    """R² fuera de muestra (K-fold repetido) del modelo completo y del restringido, sobre las mismas particiones.
+
+    Con ridge=True ambos modelos se estiman con ridge y penalización elegida por validación cruzada interna,
+    lo que permite usar todos los componentes retenidos sin sobreajuste.
+    """
+    from sklearn.linear_model import LinearRegression, RidgeCV
+    from sklearn.metrics import r2_score
+    from sklearn.model_selection import RepeatedKFold
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    def model():
+        if ridge:
+            return make_pipeline(StandardScaler(), RidgeCV(alphas=np.logspace(-3, 3, 25)))
+        return LinearRegression()
+
+    yv, Xf, Xr = y.to_numpy(), X_full.to_numpy(), X_full.drop(columns=drop).to_numpy()
+    rkf = RepeatedKFold(n_splits=n_splits, n_repeats=n_rep, random_state=seed)
+    pred_f, pred_r = np.zeros((n_rep, len(yv))), np.zeros((n_rep, len(yv)))
+    for i, (tr, te) in enumerate(rkf.split(Xf)):
+        rep = i // n_splits
+        pred_f[rep, te] = model().fit(Xf[tr], yv[tr]).predict(Xf[te])
+        pred_r[rep, te] = model().fit(Xr[tr], yv[tr]).predict(Xr[te])
+    return pd.DataFrame({"r2_oos_completo": [r2_score(yv, p) for p in pred_f],
+                         "r2_oos_restringido": [r2_score(yv, p) for p in pred_r]}).assign(
+        delta_r2_oos=lambda d: d["r2_oos_completo"] - d["r2_oos_restringido"])
 
 
 def diagnostics(y: pd.Series, X: pd.DataFrame) -> dict:
