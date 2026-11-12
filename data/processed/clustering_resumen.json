@@ -1,0 +1,21 @@
+{
+  "umbral_tukey": 16.91195950438299,
+  "atipicos": [
+    "TLS",
+    "SLE",
+    "ZWE",
+    "LBY",
+    "ERI",
+    "SSD",
+    "KIR",
+    "ISL"
+  ],
+  "n_cluster": 175,
+  "config": {
+    "algoritmo": "KMeans",
+    "parametro": "-",
+    "k": 5,
+    "silhouette": 0.1439690200621935,
+    "ari_bootstrap": 0.8235169313127255
+  }
+}

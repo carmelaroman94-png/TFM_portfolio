@@ -1,0 +1,86 @@
+seed: 42
+
+periodo:
+  inicio: 2000
+  fin: 2020
+
+universo:
+  n_paises: 193
+
+targets:
+  principal: FP.CPI.TOTL.ZG
+  secundario: NY.GDP.DEFL.KD.ZG
+  # Inflación, índices de precios y deflactores: son el fenómeno a explicar, no pueden ser predictores.
+  excluir_de_features:
+    - FP.CPI.TOTL
+    - FP.CPI.TOTL.ZG
+    - NY.GDP.DEFL.KD.ZG
+    - NY.GDP.DEFL.KD.ZG.AD
+    - NY.GDP.DEFL.ZS
+    - NY.GDP.DEFL.ZS.AD
+    - NE.DAB.DEFL.ZS
+    - PA.NUS.PLI
+    - PA.NUS.GDP.PLI
+    - PA.NUS.PRVT.PLI
+    - FP.WPI.TOTL
+
+cobertura:
+  umbral_pct_paises: 70
+  umbral_pct_anios: 60
+
+trayectorias:
+  estadisticos: [media, tendencia, volatilidad]
+  min_anios: 5
+
+paises:
+  umbral_missingness_exclusion: 40
+
+imputacion:
+  k_candidatos: [3, 5, 8, 10, 15, 20]
+  n_repeticiones: 5
+  fraccion_enmascarada: 0.10
+
+pca:
+  dimensiones: [MONETARIA, INSTITUCIONAL, ESTRUCTURAL, SOCIODEMOGRAFICA]
+  varianza_objetivo: 0.70
+  kmo_objetivo: 0.60
+  min_variables: 15
+
+regresion:
+  piso_varianza_componentes: 0.30
+  obs_por_predictor: 10
+  alpha: 0.05
+  n_bootstrap: 2000
+
+clustering:
+  k_grid: [3, 4, 5, 6, 7, 8]
+  linkages: [ward, average, complete]
+  covarianzas_gmm: [diag, tied, spherical]
+  tamanio_minimo: 5
+  ari_minimo: 0.60
+  final:
+    algoritmo: GMM
+    covarianza: tied
+    k: 4
+
+clasificacion:
+  codebook: v2
+  modelo: openai/gpt-oss-120b
+  umbral_confianza: 0.60
+  excluir_ambiguo: true
+  # Asignaciones teóricas fijas: prevalecen sobre el LLM y quedan protegidas en la poda previa al PCA.
+  variables_protegidas:
+    MONETARIA: [FR.INR.DPST, FR.INR.LEND, FR.INR.RINR, FM.LBL.BMNY.GD.ZS, FM.LBL.BMNY.ZG,
+                FM.LBL.BMNY.IR.ZS, FM.AST.CGOV.ZG.M3, FM.AST.PRVT.ZG.M3]
+    INSTITUCIONAL: [GOV_WGI_RQ_SC, GOV_WGI_RL_SC, GOV_WGI_CC_SC]
+    ESTRUCTURAL: [NE.TRD.GNFS.ZS, NE.EXP.GNFS.ZS, NE.IMP.GNFS.ZS, BX.KLT.DINV.WD.GD.ZS]
+    SOCIODEMOGRAFICA: [SP.POP.GROW, SP.DYN.LE00.IN, SL.UEM.TOTL.ZS]
+
+comparabilidad:
+  # Niveles absolutos que escalan con el tamaño del país o dependen de la moneda local.
+  tokens_codigo_absoluto: [CD, KD, CN, KN]
+  patron_nombre_absoluto: '^Number of|\(number\)|\(people\)|\bMt\b|sq\. km|billion cubic|\(kt\)|metric tons\)|LCU per|^Population, total|Population ages .* total$|\(constant .*US\$\)|\(current US\$\)|\(current LCU\)|\(constant LCU\)|\(hectares\)|\(kWh\)|ton-km|^Population(,| ages| in largest)|^(Rural|Urban) population$|pupils$|teachers$|out of school, primary$|subscriptions$|passengers carried|departures worldwide|number of arrivals|^Patent applications|journal articles$|personnel, total|^Labor force, total$|^Asylum-seekers|^Refugees under'
+  patron_nombre_relativo: 'per capita|per 1|%|\(per '
+
+portfolio:
+  repo_url: https://github.com/carmelaroman94-png/tfm-inflacion

@@ -1,0 +1,12 @@
+# Datos crudos voluminosos: se obtienen con pipeline/download_data.py
+data/raw/wdi/WDI_CSV_*.zip
+data/raw/vdem/vdem_v16.RData
+data/raw/vdem/vdem_v16_79idx_*
+data/raw/vdem/*.pdf
+# Regenerable con run_all.sh
+data/processed/panel_largo.parquet
+# Secretos y artefactos locales
+.env
+__pycache__/
+*.egg-info/
+.ipynb_checkpoints/

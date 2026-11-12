@@ -1,0 +1,225 @@
+CODEBOOK DE CLASIFICACION CONCEPTUAL DE INDICADORES
+
+
+TFM: Multicausalidad de la inflacion: un estudio comparativo con tecnicas de Machine Learning — B. Carmela Roman
+
+Proposito. Traducir el marco teorico (introduccion + marco teorico y estado de la cuestion) en reglas operativas para clasificar indicadores WDI y V-Dem en cuatro dimensiones analíticas. 
+
+Principio rector. La clasificacion se basa en que fenomeno mide el indicador, no en que palabras contiene su nombre, no en que podria causar, y no en que podria estar correlacionado con el. Tampoco se basa en la fuente de origen del indicador — el propio TFM señala que WDI contiene tanto indicadores monetarios como sociodemograficos, y que V-Dem no es una base "puramente institucional" (ver caso v2xeg_eqaccess, seccion 3.4).
+
+
+
+CATEGORIAS PERMITIDAS
+MONETARIA
+SOCIODEMOGRAFICA
+INSTITUCIONAL
+ESTRUCTURAL
+AMBIGUO — cuando la metadata no permite una clasificacion razonablemente segura. No es categoria de relleno.
+
+
+
+JERARQUIA DE DECISION
+
+Definicion conceptual — que dice literalmente la description/question del indicador.
+
+Mecanismo capturado — que fenomeno mide realmente, mas alla de la definicion literal.
+
+Relacion con el marco teorico — que autor/escuela de las revisadas en el TFM usa ese mecanismo como pieza explicativa de la inflacion.
+
+Unidad y naturaleza de la variable — auxiliar, nunca decisiva.
+
+Nombre y codigo — complementario, ultima instancia.
+
+
+
+REGLAS OPERATIVAS POR DIMENSIÓN
+
+3.1 MONETARIA
+
+Fundamento teorico. Friedman (1968): la expansion monetaria sin contrapartida en produccion real se traduce, en el largo plazo, en aumento sostenido de precios — la inflacion depende del dinero en circulacion, el PBI real y la velocidad de circulacion (teoria cuantitativa del dinero reformulada). El mecanismo es la cantidad de dinero y las condiciones financieras, no las reglas que gobiernan a quien las administra (eso es 3.3).
+
+Incluye:
+
+Agregados monetarios (base monetaria, M2, oferta monetaria).
+Credito interno, credito al sector privado/gobierno.
+Tasas de interes (politica, deposito, prestamo) — el mecanismo de transmision en si, no el diseño institucional que lo enmarca.
+Condiciones financieras en sentido amplio, incluyendo indices o rendimientos de mercados bursatiles/financieros (agregado v2.1 — cubre casos como variaciones de indices accionarios, que son condiciones financieras tal como las entiende Woodford).
+Variables fiscales, en sentido amplio (agregado v2.1): no solo deficit/superavit fiscal y deuda publica, sino tambien nivel de gasto publico de consumo y carga tributaria sobre bienes y servicios. Se adopta la lectura amplia porque las escuelas monetaristas ponen foco explicitamente en la contencion del gasto publico como mecanismo de control monetario/inflacionario, no unicamente en el resultado neto (deficit).
+Inflacion en si misma, cuando el indicador mide directamente el fenomeno de precios.
+
+Excluye: independencia legal/efectiva del banco central (mecanismo institucional, no monetario — ver 4.1); gasto publico sectorial sin relacion con financiamiento o volumen del gasto en si.
+
+Ejemplos reales (WDI):
+
+FP.CPI.TOTL.ZG — Inflation, consumer prices. → MONETARIA, confianza alta.
+FR.INR.DPST — Deposit interest rate. → MONETARIA, confianza alta.
+FM.AST.CGOV.ZG.M3 — Claims on central government (% of broad money). → MONETARIA, confianza alta (financiamiento monetario directo del gobierno).
+CM.MKT.INDX.ZG — S&P Global Equity Indices (annual % change). → MONETARIA, confianza alta (condiciones financieras / mercado de activos). [agregado v2.1]
+NE.CON.GOVT.KN, NE.CON.GOVT.KD.ZG — General government final consumption expenditure. → MONETARIA, confianza media-alta (nivel de gasto publico, lectura amplia). [agregado v2.1]
+GC.TAX.GSRV.VA.ZS — Taxes on goods and services (% value added). → MONETARIA, confianza media-alta (carga tributaria, lectura amplia). [agregado v2.1]
+
+
+
+3.2 SOCIODEMOGRAFICA
+
+Fundamento teorico. Coibion, Gorodnichenko y Kamdar (2018): los agentes no forman expectativas bajo informacion completa (FIRE). Las encuestas muestran sesgos demograficos por genero y edad, y que la inflacion percibida depende de la canasta de consumo de cada individuo — es decir, caracteristicas sociodemograficas condicionan el acceso a la informacion y por lo tanto la formacion de expectativas inflacionarias.
+
+Criterio operativo derivado: un indicador es sociodemografico si describe una caracteristica del agente/poblacion que plausiblemente genera heterogeneidad en el acceso a la informacion o en la canasta de consumo relevante (educacion, ingreso, edad, composicion del hogar, pobreza) — no cualquier estadistica social.
+
+Incluye:
+
+Educacion (matricula, docentes, alfabetizacion), pobreza, desigualdad, distribucion del ingreso, empleo/desempleo (como caracteristica del agente, no como estructura sectorial), composicion demografica.
+Agregados de ingreso o consumo per capita — PBI/INB per capita, consumo de hogares per capita — como indicadores del nivel de bienestar material agregado de la poblacion: caracteristica socioeconomica directa de los agentes, no proxy de otro mecanismo. (agregado v2.1)
+Acceso a condiciones materiales basicas y de salud de la poblacion — agua potable, saneamiento, nutricion, cobertura de servicios de salud basica — bajo el mismo criterio: describen directamente una condicion socioeconomica de los agentes, en la misma logica que pobreza o distribucion del ingreso, solo que mirada desde privacion material en vez de desde ingreso monetario. (agregado v2.1)
+
+Excluye: empleo por sector economico (mide estructura productiva, no caracteristica del agente → 3.4); programas estatales de proteccion social en tanto diseño institucional (→ 3.3).
+
+El criterio a seguir es: esta caracteristica, plausiblemente, hace que distintos grupos de personas perciban o anticipen la inflacion de manera distinta.
+
+Si existiera, por ejemplo, un indicador de "numero de museos por cada 100.000 habitantes" — es un dato social/cultural, pero no tiene ningun vinculo plausible con como la gente forma expectativas de precios. Ese indicador, aunque sea "social" en sentido amplio, no encajaria en esta dimension.
+
+Ejemplos reales (WDI):
+
+SI.POV.DDAY — Poverty headcount ratio. → SOCIODEMOGRAFICA, confianza alta.
+SE.ADT.1524.LT.FE.ZS — Literacy rate, youth female. → SOCIODEMOGRAFICA, confianza alta (afecta directamente acceso a la informacion, en linea con Coibion et al.).
+SE.SEC.TCAQ.UP.ZS — Trained teachers in upper secondary education. → SOCIODEMOGRAFICA, confianza alta. Indicadores de educacion van a esta dimension aunque describan aspectos del sistema educativo (formacion docente, matricula, infraestructura escolar): "educacion" ya es una categoria propia de esta dimension y no debe reinterpretarse como INSTITUCIONAL. (agregado v2.1, ejemplo ancla)
+NY.GDP.PCAP.PP.CD, NY.GNP.PCAP.PP.CD, NE.CON.PRVT.PC.KD — PBI/INB per capita, consumo de hogares per capita. → SOCIODEMOGRAFICA, confianza media-alta (nivel de bienestar material agregado). [agregado v2.1]
+SH.H2O.SMDW.ZS, SH.STA.SMSS.RU.ZS, SH.STA.MALN.ZS — agua potable segura, saneamiento rural, desnutricion infantil. → SOCIODEMOGRAFICA, confianza media (condicion material basica de la poblacion). [agregado v2.1]
+
+
+
+3.3 INSTITUCIONAL
+
+Fundamento teorico — dos corrientes distintas dentro del marco teorico, ambas relevantes:
+
+a) Institucionalismo monetario (Cukierman, Webb y Neyapti 1992; Garriga y Rodriguez 2023; Blinder 2000): el problema no es cuanto emitir sino como diseñar instituciones que hagan creible el compromiso de no emitir de mas. La independencia del banco central se mide en 4 formas (legal, rotacion de gobernadores, encuestas a especialistas, combinacion) — el mecanismo es el diseño institucional que sostiene la credibilidad, no la tasa de interes que ese banco central fija.
+
+b) Institucionalismo politico amplio (Persson y Tabellini via Acemoglu 2005; Chang 2001): las reglas constitucionales y la distribucion del poder politico configuran el contexto en que se diseñan las politicas economicas — Acemoglu matiza que estas instituciones son a su vez endogenas a procesos politicos e historicos (transiciones democraticas, golpes de Estado), y Chang insiste en que el mercado mismo es una construccion politica, no algo neutral separado de lo institucional.
+
+Regla explicita anti-lexical: "government", "public" o "policy" en el nombre no son evidencia suficiente. Debe haber relacion con (a) diseño institucional que sostiene credibilidad/compromiso, o (b) reglas formales de organizacion y limitacion del poder politico, o (c) el resultado observado del ejercicio de ese poder politico-formal (ver regla revisada en 4.4).
+
+Incluye: independencia legal/efectiva del banco central, restricciones al ejecutivo, independencia judicial, calidad legislativa, participacion politica, sufragio, corrupcion, rendicion de cuentas, control civil/militar sobre el ejecutivo, institucionalizacion de partidos, respeto estatal a la integridad fisica (Estado de derecho).
+
+Ejemplos reales (V-Dem):
+
+v2x_jucon — Judicial constraints on the executive index. → INSTITUCIONAL, confianza alta.
+v2xps_party — Party institutionalization index. → INSTITUCIONAL, confianza alta (estructura del sistema de partidos, poder politico-formal). [corregido v2.1, ver 4.4]
+v2x_ex_party, v2x_ex_military — control del ejecutivo por partido/ejercito. → INSTITUCIONAL, confianza alta. [corregido v2.1, ver 4.4]
+v2x_diagacc — Diagonal accountability index. → INSTITUCIONAL, confianza alta (mecanismos de rendicion de cuentas). [corregido v2.1, ver 4.4]
+v2x_clphy — Physical violence index. → INSTITUCIONAL, confianza alta (Estado de derecho / integridad fisica frente al Estado). [corregido v2.1, ver 4.4]
+v2x_cspart — Civil society participation index. → INSTITUCIONAL, confianza alta (participacion politica formal). [corregido v2.1, ver 4.4]
+
+
+
+3.4 ESTRUCTURAL
+
+Fundamento teorico. Prebisch (1976, 1981; via Di Filippo 2009): la inflacion periferica es la expresion de la pugna distributiva por el excedente entre estratos sociales con distinto poder — poder que no proviene solo de concentracion empresarial, sino tambien de poder sindical, propiedad de la tierra, etc. A esto se suma un segundo nivel, especificamente internacional: la posicion centro-periferia y la dependencia externa respecto a los terminos de intercambio y los socios comerciales.
+
+Importante — esto amplia el alcance respecto a v1.0: la dimension estructural no es solo "composicion sectorial de la economia". Tiene dos mecanismos distintos, ambos validos:
+
+a) Estructura productiva interna — composicion sectorial, industrializacion, concentracion/competencia empresarial, barreras de entrada. b) Posicion en la estructura internacional — dependencia externa, terminos de intercambio, concentracion de exportaciones. Este es exactamente el mecanismo que mide el indice Herfindahl-Hirschman de Market Concentration, definido por el Banco Mundial como reflejo de la dependencia del exportador respecto de sus socios comerciales.
+
+Caso especial ya resuelto: v2xeg_eqaccess (V-Dem, Equal access to power) → ESTRUCTURAL, no institucional, porque mide directamente la capacidad de distintos grupos (genero, posicion socioeconomica, pertenencia social) de acceder a recursos y posiciones de poder economico-social — es la operacionalizacion mas cercana disponible a la "disputa por el excedente entre estratos con distinto poder" de Prebisch, aunque provenga de una base tipicamente institucional.
+
+Caso relacionado: v2xeg_eqdr (Equal distribution of resources index) sigue el mismo criterio que v2xeg_eqaccess — mide distribucion de recursos economicos entre grupos, no reglas ni resultados del sistema politico-formal, por lo que corresponde a ESTRUCTURAL.
+
+Nota v2.1 — revision de casos previamente asignados aqui: en la version 2.0 de este codebook, v2xpe_exlgender y v2x_genpp figuraban como ejemplos de ESTRUCTURAL bajo el argumento de que median "el resultado observado de la distribucion de poder entre grupos". Tras la revision del piloto, ese criterio quedo acotado (ver 4.4): el tipo de poder en disputa importa, no solo si se trata de una regla formal o un resultado observado. v2x_genpp (representacion politica descriptiva de mujeres en cargos legislativos) mide poder politico-formal, no poder economico → pasa a INSTITUCIONAL. v2xpe_exlgender (exclusion de servicios y espacios de participacion por genero) es un caso mixto que requiere revision manual caso por caso: si la exclusion medida es principalmente de recursos/posicion economica, permanece ESTRUCTURAL; si es principalmente de participacion politica formal, corresponde a INSTITUCIONAL. Marcar con necesita_revision_humana = true mientras no se resuelva.
+
+Ejemplos reales (WDI), ya identificados en el propio TFM (Anexo 4):
+
+NV.IND.MANF.ZS, NV.IND.TOTL.ZS, NV.AGR.TOTL.ZS, NV.SRV.TOTL.ZS, NV.IND.MANF.KD — composicion sectorial.
+IC.BRE.MC.OS (B-READY Market Competition), IC.FRM.CMPU.ZS, IC.BUS.NDNS.ZS — competencia y dinamismo empresarial.
+
+
+
+REGLAS DE DESAMBIGUACION ENTRE DIMENSIONES
+
+4.1 Monetaria vs. Institucional (regla revisada en v2.0)
+
+Pregunta de deslinde: el indicador mide el mecanismo en funcionamiento (monetaria) o el diseño/credibilidad de la regla que lo gobierna (institucional).
+
+"Tasa de politica monetaria", "tasa de interes de deposito" → MONETARIA. Es el mecanismo de transmision en accion — el propio Woodford (2003) desplaza el foco monetarista hacia la tasa de interes, pero sigue siendo el instrumento/mecanismo, no la institucion.
+"Independencia legal del banco central", "rotacion de gobernadores" → INSTITUCIONAL. Es la regla/diseño que sostiene la credibilidad del mecanismo (Cukierman et al. 1992).
+Si la metadata describe explicitamente credibilidad, compromiso o diseño institucional del banco central (no la tasa en si) → INSTITUCIONAL aunque el indicador provenga de la esfera "monetaria" en sentido amplio.
+
+4.2 Sociodemografica vs. Estructural
+
+"Tasa de alfabetizacion" → SOCIODEMOGRAFICA (caracteristica del agente que afecta acceso a informacion, Coibion et al.).
+"Empleo en manufactura (% del empleo total)" → ESTRUCTURAL (describe composicion sectorial, no heterogeneidad de expectativas del agente).
+
+4.3 Institucional vs. Fiscal/Monetaria
+
+Deficit/deuda publica → MONETARIA por defecto (relevancia para el mecanismo de transmision y financiamiento, tal como señalan Cukierman et al. sobre la competencia entre politica monetaria y financiamiento del deficit), salvo que la metadata indique explicitamente que mide calidad de gestion presupuestaria/transparencia fiscal → INSTITUCIONAL.
+Caso especial — deuda expresada en relacion al comercio exterior. Si la deuda se mide en relacion a agregados fiscales o monetarios domesticos (PBI, ingresos del gobierno, base monetaria) → MONETARIA. Si se expresa en relacion a la capacidad de generacion de divisas por comercio exterior (exportaciones, reservas internacionales) → ESTRUCTURAL, dependencia externa — mismo mecanismo que justifica la inclusion del indice Herfindahl-Hirschman en 3.4(b). Ejemplo: DT.DOD.DSTC.XP.ZS (Short-term debt, % of exports) → ESTRUCTURAL, no MONETARIA.
+
+4.4 Estructural vs. Institucional (poder economico vs. poder politico) — regla revisada en v2.1
+
+Regla general: quien controla recursos economicos o posicion en el mercado/comercio → ESTRUCTURAL (Prebisch). Quien controla las reglas formales del sistema politico → INSTITUCIONAL (Acemoglu, Chang).
+
+Advertencia especifica (agregada tras el piloto, v2.1): la frase "distribucion de poder" o "resultado observado de la distribucion de poder entre grupos" no basta, por si sola, para clasificar como ESTRUCTURAL. La version 2.0 de esta regla llevo a errores sistematicos de clasificacion en el piloto porque no distinguia el tipo de poder en disputa. La distincion correcta es:
+
+Si el poder en cuestion es economico (acceso a recursos materiales, posicion en el mercado, capacidad de extraer o repartir excedente) → ESTRUCTURAL. Ejemplos: v2xeg_eqaccess, v2xeg_eqdr.
+Si el poder en cuestion es politico-formal (participacion electoral, partidos, control del ejecutivo, rendicion de cuentas, libertades civiles, integridad fisica frente al Estado) → INSTITUCIONAL, incluso cuando el indicador mide un desenlace observado de facto y no solo una norma escrita de jure. Lo que se disputa en estos casos es el control del aparato politico, no el excedente economico, y por eso corresponde a INSTITUCIONAL aunque se describa como "resultado" o "distribucion".
+
+Ejemplos corregidos tras el piloto (v2.1): v2xps_party, v2x_ex_party, v2x_ex_military, v2x_diagacc, v2x_clphy, v2x_cspart, v2x_genpp → INSTITUCIONAL, no ESTRUCTURAL (ver tambien 3.3 y 3.4).
+
+Caso que sigue requiriendo revision manual: v2xpe_exlgender (ver nota en 3.4).
+
+Criterio de deslinde para indices de V-Dem sobre poder y grupos sociales, actualizado:
+
+Preguntar primero que TIPO de poder mide el indicador (economico vs. politico-formal), usando la regla de arriba.
+Solo si el poder es economico, preguntar ademas si mide la regla formal de acceso (INSTITUCIONAL) o el resultado observado de la distribucion (ESTRUCTURAL) — este es el unico caso donde "resultado observado" sigue siendo un criterio valido para inclinar hacia ESTRUCTURAL.
+Si el poder es politico-formal, el indicador es INSTITUCIONAL independientemente de si describe una regla o un resultado observado.
+
+4.5 Advertencia general
+
+No confundir lo que el indicador mide con lo que podria causar o con lo que podria estar correlacionado.
+
+Lo que mantiene a las cuatro dimensiones separadas es preguntar: que fenomeno concreto esta midiendo esta variable, en si misma, independientemente de para que la vas a usar despues.
+
+La tasa de alfabetizacion mide una caracteristica de las personas → SOCIODEMOGRAFICA. (El por que te importa esa caracteristica — via Coibion et al. — es la justificacion teorica de por que esa dimension existe en tu framework, no una razon para moverla a otra dimension.)
+
+La tasa de interes mide directamente un mecanismo financiero → MONETARIA.
+
+La misma logica aplica al reves: un indicador de pobreza no deja de ser sociodemografico aunque la pobreza este correlacionada con mayor informalidad economica (que seria estructural).
+
+4.6 Advertencia metodologica
+
+La dimension estructural es la peor cubierta. Conviene no "forzar" indicadores dudosos hacia ESTRUCTURAL solo para balancear las categorias.
+
+
+
+DIMENSION SECUNDARIA
+
+Cuando el indicador es razonablemente clasificable en mas de una dimension: identificar todas las plausibles → elegir la dimension principal segun el mecanismo dominante (nivel 2 de la jerarquia) → asignar secundaria solo si hay relacion conceptual clara → la salida final tiene una unica dimension principal.
+
+
+
+ESCALA DE CONFIANZA
+
+Rango           Interpretacion 0.90 - 1.00     Clasificacion muy clara — mecanismo inequivoco, confirmado por la metadata. 0.75 - 0.89     Razonablemente clara — dimension dominante con algun matiz o secundaria plausible. 0.60 - 0.74     Discutible — un codificador razonable podria discrepar. < 0.60          Requiere revision humana — considerar AMBIGUO.
+
+Heuristico de seguridad, no probabilidad estadistica. Siempre acompañado de justificacion textual.
+
+
+
+CRITERIO PARA AMBIGUO
+description/question vacia, demasiado generica, o no corresponde al nombre (ver caso v2xcl_acjst).
+El indicador combina mecanismos de tres o mas dimensiones sin que ninguno sea dominante.
+Nombre/codigo sugieren una dimension que la definicion conceptual no permite confirmar ni descartar.
+
+No forzar una clasificacion sustantiva solo para completar el dataset.
+
+
+
+ESTRUCTURA DE SALIDA POR INDICADOR
+
+Obligatorios: codigo, nombre, fuente, dimension_principal, confianza, justificacion_conceptual. Deseables: dimension_secundaria, mecanismo_conceptual, palabras_clave_relevantes, problemas_de_clasificacion, necesita_revision_humana.
+
+
+
+REGLAS METODOLOGICAS TRANSVERSALES
+No inventar informacion si la metadata no permite determinarlo — declarar AMBIGUO.
+La fuente de origen (WDI/V-Dem/MC) no es evidencia de dimension.
+Ante coincidencia lexical sin coincidencia conceptual, primar siempre el mecanismo.
+No forzar balance artificial entre dimensiones (ver 4.6) — una asimetria en el conteo final de ESTRUCTURAL vs. las demas es esperable y ya esta anticipada en el propio marco teorico.

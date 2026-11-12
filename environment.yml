@@ -1,0 +1,25 @@
+name: tfm-inflacion
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - poppler                # pdftotext, para extraer la metadata del codebook de V-Dem
+  - git
+  - pip
+  - pip:
+      - pandas==3.0.5
+      - numpy==2.5.3
+      - scipy==1.18.1
+      - scikit-learn==1.9.1
+      - statsmodels==0.15.0
+      - factor_analyzer==0.5.1
+      - plotly==7.1.0
+      - kaleido>=1.0          # exportación PNG (requiere Chrome instalado)
+      - pyarrow==26.0.1
+      - pyreadr==0.5.9
+      - openpyxl==3.1.5
+      - pyyaml
+      - requests
+      - jupyterlab
+      - nbformat
+      - -e .
