@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from inflacion import regression as rg
+from inflacion import targets
 from inflacion.config import Paths, load_params
 
 P = load_params()
@@ -23,7 +24,7 @@ N_SPLITS, N_REP = 10, 50
 pca = pickle.load(open(OUT / "pca_resultados.pkl", "rb"))
 scores = pd.read_parquet(OUT / "pca_scores.parquet")
 sample = pd.read_csv(OUT / "clusters.csv", index_col=0).index
-target = pd.read_csv(OUT / "target_principal.csv", index_col="iso3")
+target = targets.load("principal")
 
 rows = []
 for stat in P["trayectorias"]["estadisticos"]:

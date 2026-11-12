@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from inflacion import clustering as cl
+from inflacion import targets
 from inflacion.config import Paths, load_params
 from inflacion.sources.countries import un_members
 
@@ -33,7 +34,7 @@ labels = pd.Series(cl.fit_labels(X.to_numpy(), best.algoritmo, best.parametro, i
 order = {old: new for new, old in enumerate(labels.value_counts().index)}
 labels = labels.map(order).rename("cluster")
 
-target = pd.read_csv(OUT / "target_principal.csv", index_col="iso3")
+target = targets.load("principal")
 y = target.loc[labels.index]
 disp = cl.within_dispersion(y, labels, ["media", "tendencia", "volatilidad"])
 

@@ -46,8 +46,10 @@ else:
 
     for name, code in targets.items():
         t = traj[traj["codigo"] == code].set_index("iso3")[["n_anios"] + STATS]
+        t = t.join(ft.annual_median(panel, code, YEARS, P["trayectorias"]["min_anios"]))
         if name == "principal":
             t = t.join(ft.theil_sen_slopes(panel, code, YEARS, P["trayectorias"]["min_anios"]))
+        t["valido"] = t["n_anios"] >= P["trayectorias"]["min_anios_target"]
         t.reindex(members["iso3"]).to_csv(OUT / f"target_{name}.csv", index_label="iso3")
 
     keep = cov.loc[cov["cumple_umbral"] & (cov["dimension"] != "TARGET"), "codigo"]

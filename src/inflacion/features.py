@@ -53,6 +53,13 @@ def theil_sen_slopes(panel: pd.DataFrame, codigo: str, years: range, min_years: 
     return pd.Series(out, name="tendencia_theil_sen")
 
 
+def annual_median(panel: pd.DataFrame, codigo: str, years: range, min_years: int) -> pd.Series:
+    """Mediana de la tasa anual: nivel robusto a años de crisis aislados, alternativa a la media."""
+    p = panel[(panel["codigo"] == codigo) & panel["anio"].between(years.start, years.stop - 1)]
+    n = p.groupby("iso3")["valor"].size()
+    return p.groupby("iso3")["valor"].median()[n >= min_years].rename("mediana")
+
+
 def wide_features(traj: pd.DataFrame, statistics: list[str]) -> pd.DataFrame:
     w = traj.pivot(index="iso3", columns="codigo", values=statistics)
     w.columns = [f"{c}__{s}" for s, c in w.columns]

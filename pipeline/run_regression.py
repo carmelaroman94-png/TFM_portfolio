@@ -4,7 +4,7 @@ Cada dimensión entra con el mismo número de componentes principales, para que 
 bloques con los mismos grados de libertad y el control monetario no quede en desventaja frente al resto.
 
 Uso: run_regression.py [variante] [--k N]
-  variantes: principal, deflactor, theil_sen, con_atipicos, tasas_nominales
+  variantes: principal, deflactor, theil_sen, mediana, con_atipicos, tasas_nominales
 """
 import argparse
 import pickle
@@ -16,6 +16,7 @@ from statsmodels.stats.multitest import multipletests
 
 from inflacion import preprocessing as pp
 from inflacion import regression as rg
+from inflacion import targets
 from inflacion.config import Paths, load_params
 
 P = load_params()
@@ -27,7 +28,7 @@ NON_MON = [d for d in DIMS if d != "MONETARIA"]
 
 ap = argparse.ArgumentParser()
 ap.add_argument("variant", nargs="?", default="principal",
-                choices=["principal", "deflactor", "theil_sen", "con_atipicos", "tasas_nominales"])
+                choices=["principal", "deflactor", "theil_sen", "mediana", "con_atipicos", "tasas_nominales"])
 ap.add_argument("--k", type=int, default=R["componentes_por_bloque"])
 args = ap.parse_args()
 variant, K = args.variant, args.k
@@ -40,9 +41,11 @@ scores = pd.read_parquet(OUT / "pca_scores.parquet")
 sample = pd.read_csv(OUT / "clusters.csv", index_col=0).index
 if variant == "con_atipicos":
     sample = scores.index
-target = pd.read_csv(OUT / ("target_secundario.csv" if variant == "deflactor" else "target_principal.csv"), index_col="iso3")
+target = targets.load("secundario" if variant == "deflactor" else "principal")
 if variant == "theil_sen":
     target["tendencia"] = target["tendencia_theil_sen"]
+if variant == "mediana":
+    target["media"] = target["mediana"]
 
 extra_controls = pd.DataFrame(index=scores.index)
 if variant == "tasas_nominales":

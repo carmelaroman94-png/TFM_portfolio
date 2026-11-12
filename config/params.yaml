@@ -31,6 +31,9 @@ cobertura:
 trayectorias:
   estadisticos: [media, tendencia, volatilidad]
   min_anios: 5
+  # Para la variable dependiente se exige el mismo criterio de cobertura temporal que a las features (60%
+  # de los 21 años): una media de pocos años no describe la trayectoria del período.
+  min_anios_target: 13
 
 paises:
   umbral_missingness_exclusion: 40

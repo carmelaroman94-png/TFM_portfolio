@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 
 from inflacion import clustering as cl
+from inflacion import targets
 from inflacion.config import Paths, load_params
 
 P = load_params()
@@ -10,7 +11,7 @@ OUT = Paths.processed
 scores = pd.read_parquet(OUT / "pca_scores.parquet")
 lab0 = pd.read_csv(OUT / "clusters.csv", index_col=0)["cluster"]
 X = scores.loc[lab0.index, [c for c in scores.columns if c.startswith("MONETARIA_")]]
-target = pd.read_csv(OUT / "target_principal.csv", index_col="iso3").loc[X.index]
+target = targets.load("principal").loc[X.index]
 grid = pd.read_csv(OUT / "clustering_grid.csv").dropna(subset=["ari_bootstrap"])
 configs = grid.sort_values("silhouette", ascending=False)
 configs = pd.concat([configs, pd.DataFrame([{"algoritmo": "GMM", "parametro": "tied", "k": 4}])]).drop_duplicates(
