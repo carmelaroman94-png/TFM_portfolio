@@ -881,7 +881,7 @@ body = (f'<div class="objective"><h2>Pregunta de investigación</h2><p>¿En qué
           '<li>H1: clustering del perfil monetario-fiscal y descomposición de la variación inflacionaria.</li>'
           f'<li>H2-H3: regresiones anidadas con {K} componentes por dimensión, inferencia robusta, permutaciones, bootstrap, corrección de Holm, {len(VAR)} especificaciones y validación fuera de muestra.</li></ol></div>')
 hero_sub = (f'Trabajo Final de Máster en Ciencia de Datos · B. Carmela Roman. Proyecto reproducible: código modular, pipeline de punta a punta y 8 notebooks documentados.'
-            f'<br><br><a class="btn" href="01_datos.html">Explorar los dashboards</a><a class="btn ghost" href="{REPO}">Ver el repositorio en GitHub</a>')
+            f'<br><br><a class="btn" href="01_datos.html">Explorar los dashboards</a>')
 (OUT / "index.html").write_text(page("index.html", "Multicausalidad de la inflación: un estudio comparativo con Machine Learning", hero_sub, "", body, {}, REPO,
                                      sources=SOURCES), encoding="utf-8")
 print("Dashboards generados en", OUT)
