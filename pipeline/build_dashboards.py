@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 from plotly.offline import get_plotlyjs
 from plotly.subplots import make_subplots
 
+from inflacion import targets
 from inflacion.classification.evaluation import confusion
 from inflacion.config import Paths, load_params
 from inflacion.dashboard import card, fig_json, kpis, page, seg
@@ -29,7 +30,14 @@ SOURCES = ("Fuentes: Banco Mundial, World Development Indicators (versión 8-oct
 M = un_members().set_index("iso3")
 REG_ES = {"Africa": "África", "Americas": "América", "Asia": "Asia", "Europe": "Europa", "Oceania": "Oceanía"}
 M["region_es"] = M["region"].map(REG_ES)
-M["corto"] = M["pais"].str.split(" \\(").str[0].replace({"Democratic Republic of the Congo": "DR Congo", "United Republic of Tanzania": "Tanzania"})
+M["corto"] = M["pais"].str.split(" \\(").str[0].replace({"Democratic Republic of the Congo": "DR Congo", "United Republic of Tanzania": "Tanzania",
+    "Democratic People's Republic of Korea": "North Korea", "Bosnia and Herzegovina": "Bosnia-Herzegovina", "Brunei Darussalam": "Brunei"})
+# Nombres en castellano para los países que se citan en los textos de lectura.
+ES = {"VEN": "Venezuela", "BRN": "Brunéi", "BIH": "Bosnia y Herzegovina", "MNE": "Montenegro", "AGO": "Angola", "JPN": "Japón", "BLR": "Belarús",
+      "COD": "Congo RD", "COG": "Congo", "SSD": "Sudán del Sur", "ZWE": "Zimbabue", "SDN": "Sudán", "SUR": "Surinam", "DJI": "Yibuti", "CHE": "Suiza",
+      "ECU": "Ecuador", "BHR": "Baréin", "MDV": "Maldivas", "GUY": "Guyana", "SRB": "Serbia", "QAT": "Catar", "TUN": "Túnez", "URY": "Uruguay",
+      "NPL": "Nepal", "CPV": "Cabo Verde", "SAU": "Arabia Saudita", "OMN": "Omán", "LBY": "Libia", "IRN": "Irán", "TKM": "Turkmenistán"}
+es = lambda i: ES.get(i, M.loc[i, "corto"])
 STAT = {"media": "Media", "tendencia": "Tendencia", "volatilidad": "Volatilidad"}
 NAMES = {2: "Avanzadas", 0: "Ingreso medio", 3: "Rentistas de recursos", 4: "Pequeñas con Estado grande", 1: "Baja profundidad financiera"}
 ORDER = [2, 0, 3, 4, 1]
@@ -49,6 +57,7 @@ final = pd.read_csv(D / "classification" / "clasificacion_final.csv")
 miss = pd.read_csv(D / "missingness_pais.csv", index_col="iso3")["pct_missing"]
 target = pd.read_csv(D / "target_principal.csv", index_col="iso3")
 labels = pd.read_csv(D / "clusters.csv", index_col=0)["cluster"]
+scores = pd.read_parquet(D / "pca_scores.parquet")
 summ_feat = json.loads((D / "resumen_features.json").read_text())
 summ_cl = json.loads((D / "clustering_resumen.json").read_text())
 cpi = panel[panel["codigo"] == P["targets"]["principal"]].pivot(index="iso3", columns="anio", values="valor")
@@ -70,6 +79,7 @@ steps = [("Catálogo inicial", len(final)),
          ("Niveles absolutos no comparables", -int((final["motivo_exclusion"] == "nivel_absoluto_no_comparable").sum())),
          ("Ambiguos (LLM)", -int((final["motivo_exclusion"] == "ambiguo").sum())),
          ("Medidas de precios", -int((final["motivo_exclusion"] == "medida_de_precios").sum())),
+         ("Relación mecánica con la inflación", -int(final["motivo_exclusion"].isin(["fuga_hacia_inflacion", "tasa_nominal_sensibilidad"]).sum())),
          ("Sin datos en la descarga", -(int(final["incluir"].sum()) - len(cand))),
          ("Cobertura insuficiente", -int((~cand["cumple_umbral"]).sum()))]
 vals = [v for _, v in steps]
@@ -117,11 +127,11 @@ body += card("cov_year", "Cobertura de datos por año y fuente",
              foot="La franja gris marca el período de estudio. MC no tiene datos publicados para 2024.", height=380, full=True)
 body += card("waterfall", "Del catálogo al universo de análisis",
              "Cuántos indicadores elimina cada filtro, desde el catálogo completo hasta los que entran en el análisis.",
-             read="<b>Lectura.</b> El filtro decisivo es el de comparabilidad (totales en moneda o conteos que crecen con el tamaño del país), seguido por la cobertura temporal. Las medidas de precios se excluyen porque son la variable a explicar.",
+             read="<b>Lectura.</b> El filtro decisivo es el de comparabilidad (totales en moneda o conteos que crecen con el tamaño del país), seguido por la cobertura temporal. Las medidas de precios se excluyen porque son la variable a explicar, y las tasas de interés porque contienen la inflación por construcción (la real se calcula con el deflactor; las nominales incorporan la inflación esperada).",
              foot="Catálogo: WDI (1.498), V-Dem (79 índices de nivel intermedio) y MC (1). Ambiguo: confianza del LLM menor a 0,60 o sin dimensión dominante.", height=380)
 body += card("retention", "Sensibilidad del umbral de cobertura por dimensión",
              "Porcentaje de indicadores que conserva cada dimensión según el mínimo de países con dato exigido (umbral de años fijo en 60%).",
-             read="<b>Lectura.</b> El umbral elegido (70%, línea punteada) queda antes de la caída pronunciada de la dimensión monetaria. La sociodemográfica es la más penalizada en proporción (45%), pero sigue siendo la que más indicadores aporta.",
+             read=f"<b>Lectura.</b> El umbral elegido (70%, línea punteada) queda antes de la caída pronunciada de la dimensión monetaria. La sociodemográfica es la más penalizada en proporción ({fmt(100 * cand[cand['dimension'] == 'SOCIODEMOGRAFICA']['cumple_umbral'].mean(), 0)}%), pero sigue siendo la que más indicadores aporta.",
              foot="Pasá el cursor por las líneas para ver el número de indicadores retenidos.", height=380)
 body += card("missing", "Información faltante por país",
              "Porcentaje de features (indicador × estadístico) sin dato para cada país, ordenado de menor a mayor.",
@@ -311,9 +321,10 @@ function renderC(){const k=document.getElementById('cty').value,s=SER[k];
 document.getElementById('cty').addEventListener('change',renderC);renderC();
 """ % json.dumps(series, ensure_ascii=False)
 
-annual = H.stack().dropna() if False else cpi.loc[:, 2000:2020].stack().dropna()
+annual = cpi.loc[:, 2000:2020].stack().dropna()
+rho_t = t[["media", "tendencia", "volatilidad"]].corr(method="spearman")
 body = kpis([(fmt(annual.median()) + "%", "inflación anual mediana 2000-2020"), (str((annual > 40).sum()), "años-país con inflación > 40%"),
-             (str(len(t)), "países con trayectoria calculable"), ("0,79", "correlación nivel–volatilidad (ρ)")])
+             (str(len(t)), "países con trayectoria calculable"), (fmt(rho_t.loc["media", "volatilidad"], 2), "correlación nivel–volatilidad (ρ)")])
 body += '<div class="grid">'
 body += card("cty", "Explorador de trayectorias por país",
              "Elegí un país para ver su inflación anual (1998-2024), la tendencia lineal del período de estudio y sus tres estadísticos de trayectoria, con el percentil que ocupa entre los países.",
@@ -326,14 +337,14 @@ body += card("bands", "La inflación entre países a lo largo del tiempo",
              foot="Cobertura anual: entre 159 (2000) y 180 (2010) países con dato.", height=380)
 body += card("scatter", "Nivel y volatilidad de la inflación",
              "Cada punto es un país: inflación media frente a volatilidad alrededor de su tendencia (ejes logarítmicos). Hacé clic en la leyenda para mostrar u ocultar regiones.",
-             read="<b>Lectura.</b> Nivel y volatilidad están fuertemente asociados (ρ = 0,79): los países con más inflación son también los de inflación más errática. La tendencia, en cambio, es casi independiente de ambos (ρ ≈ −0,2), por eso los tres estadísticos se modelan por separado.",
-             foot="181 países. ρ: correlación de rangos de Spearman.", height=380)
+             read=f"<b>Lectura.</b> Nivel y volatilidad están fuertemente asociados (ρ = {fmt(rho_t.loc['media', 'volatilidad'], 2)}): los países con más inflación son también los de inflación más errática. La tendencia, en cambio, se relaciona débilmente con ambos (ρ = {fmt(rho_t.loc['media', 'tendencia'], 2)} con el nivel), por eso los tres estadísticos se modelan por separado.",
+             foot=f"{len(t)} países con al menos {P['trayectorias']['min_anios']} años de IPC (descriptivo; los modelos exigen {P['trayectorias']['min_anios_target']}). ρ: correlación de rangos de Spearman.", height=380)
 body += card("map", "Inflación media 2000-2020 por país",
              "Mapa de la inflación media del período (escala logarítmica de color).",
              read="<b>Lectura.</b> Los niveles más altos se concentran en África subsahariana, Venezuela, Irán y Asia Central; los más bajos, en Europa occidental, Japón y Brunéi.",
              foot="Gris: países sin trayectoria calculable (menos de 5 años de IPC en 2000-2020).", full=True, height=480)
 body += card("episodes", "Episodios de alta inflación",
-             "Inflación anual de los 21 países que superaron el 40% en al menos un año entre 2000 y 2020, ordenados por su pico.",
+             f"Inflación anual de los {len(hi)} países que superaron el 40% en al menos un año entre 2000 y 2020, ordenados por su pico.",
              read="<b>Lectura.</b> Hay dos grupos temporales: colas de desinflaciones de los 90 al inicio del período (Angola, Congo RD, Belarús, Serbia, Turquía) y episodios posteriores a 2011 asociados a conflicto o colapso macroeconómico (Sudán del Sur, Venezuela, Sudán, Líbano, Zimbabue). Un episodio al inicio produce tendencias muy negativas, y uno al final, muy positivas.",
              foot="Celdas vacías: sin dato en WDI. Color en escala log simétrica.", full=True, height=560)
 body += "</div>"
@@ -342,8 +353,255 @@ body += "</div>"
     "Describir cómo se comportó la inflación entre países y a lo largo del tiempo, identificar los episodios extremos y mostrar cómo se resume la trayectoria de cada país en tres medidas (nivel, tendencia y volatilidad), que son las variables dependientes del análisis.",
     body, figs, REPO, extra_js=explorer_js, sources=SOURCES), encoding="utf-8")
 
-# ---------------------------------------------------------------- 4 · H1
+# ---------------------------------------------------------------- 4 · Distribuciones y casos extremos
 figs = {}
+EX = pd.read_csv(D / "extremos_paises.csv", index_col="iso3")
+SENS = pd.read_csv(D / "extremos_sensibilidad.csv")
+DST = pd.read_csv(D / "distribuciones_target.csv")
+tgt = targets.load("principal")
+model_idx = EX.index[EX["en_modelos_principales"]]
+RULES = [("excl_faltantes", "Más de 40% de features sin dato", "excluye"),
+         ("sin_ipc", "Menos de 5 años de IPC", "excluye"),
+         ("serie_corta", "Serie de IPC corta (< 60% de los años)", "excluye"),
+         ("atipico_perfil", "Perfil monetario atípico (Tukey)", "excluye"),
+         ("inflacion_extrema", "Inflación media extrema (Tukey en log)", "mantiene"),
+         ("episodio_40", "Algún año con inflación > 40%", "mantiene"),
+         ("brecha_deflactor", "IPC y deflactor difieren más de 2×", "mantiene"),
+         ("influyente", "Alta influencia en H3 (Cook > 4/n)", "mantiene")]
+EXCL_COLOR, KEEP_COLOR = CATEGORICAL[7], CATEGORICAL[0]
+
+# Distribuciones: escala original frente a transformada
+TT = {"media": ("Media", "log(media)"), "tendencia": ("Tendencia", "asinh(tendencia)"), "volatilidad": ("Volatilidad", "log(volatilidad)")}
+for esc in ["original", "transformada"]:
+    f = make_subplots(rows=1, cols=3, subplot_titles=[TT[s][0 if esc == "original" else 1] for s in TT], horizontal_spacing=0.07)
+    for j, s in enumerate(TT):
+        v = tgt.loc[model_idx, s].dropna()
+        v = TRF[s](v) if esc == "transformada" else v
+        sk = DST.query("estadistico == @s and escala == @esc")["asimetria"].iloc[0]
+        f.add_histogram(x=v, nbinsx=35, marker_color=CATEGORICAL[0], marker_line=dict(color="#fcfcfb", width=0.5), showlegend=False,
+                        hovertemplate="%{x}: %{y} países<extra></extra>", row=1, col=j + 1)
+        f.add_annotation(text=f"asimetría {fmt(sk, 2)}", xref=f"x{j + 1 if j else ''} domain", yref=f"y{j + 1 if j else ''} domain",
+                         x=0.98, y=0.95, showarrow=False, xanchor="right", font=dict(size=11, color=INK_SECONDARY))
+    f.update_yaxes(title_text="Países", row=1, col=1)
+    figs[f"dist_{esc}"] = fig_json(f, 360)
+sk = DST.set_index(["estadistico", "escala"])["asimetria"]
+
+# Correlaciones: estadísticos de inflación y primer componente de cada dimensión
+cmat = pd.concat([TRF[s](tgt.loc[model_idx, s]).rename(STAT[s]) for s in TT] +
+                 [scores.loc[model_idx, f"{d}_media__PC1"].rename(f"PC1 {DIM_LABELS[d].lower()}") for d in DIMENSION_COLORS], axis=1).dropna()
+rho = cmat.corr(method="spearman")
+f = go.Figure(go.Heatmap(z=rho.values, x=rho.columns, y=rho.index, zmin=-1, zmax=1, colorscale=DIVERGING, text=np.round(rho.values, 2),
+                         texttemplate="%{text}", hovertemplate="%{y} · %{x}: ρ = %{z:.2f}<extra></extra>", colorbar=dict(thickness=10)))
+f.update_layout(xaxis=dict(showgrid=False, tickangle=-30), yaxis=dict(showgrid=False, autorange="reversed"), margin=dict(l=150, b=110))
+figs["corr"] = fig_json(f, 480)
+figs["corr"]["layout"]["margin"].update(l=150, b=110)
+pc1 = rho.iloc[3:, 3:].where(~np.eye(4, dtype=bool)).abs()
+
+# Reglas: cuántos países marca cada una y qué tratamiento reciben
+counts = [(lab, int(EX[k].sum()), tr) for k, lab, tr in RULES]
+f = go.Figure(go.Bar(y=[c[0] for c in counts], x=[c[1] for c in counts], orientation="h", text=[c[1] for c in counts], textposition="outside",
+                     marker_color=[EXCL_COLOR if c[2] == "excluye" else KEEP_COLOR for c in counts], hovertemplate="%{y}: %{x} países<extra></extra>"))
+f.update_layout(yaxis=dict(autorange="reversed", showgrid=False), xaxis_title="Países marcados", margin=dict(l=280))
+figs["rules"] = fig_json(f, 360)
+figs["rules"]["layout"]["margin"]["l"] = 280
+
+# Matriz país × regla
+flag = EX[EX[[k for k, _, _ in RULES]].any(axis=1)].copy()
+flag = flag.assign(_e=flag[[k for k, _, tr in RULES if tr == "excluye"]].any(axis=1)).sort_values(["_e", "n_reglas"], ascending=[False, False])
+z = np.array([[(1 if tr == "excluye" else 0.5) if flag.loc[i, k] else 0 for k, _, tr in RULES] for i in flag.index])
+f = go.Figure(go.Heatmap(z=z, x=[lab for _, lab, _ in RULES], y=[M.loc[i, "corto"] for i in flag.index], zmin=0, zmax=1, showscale=False, xgap=2, ygap=2,
+                         colorscale=[[0, "#efeee9"], [0.5, KEEP_COLOR], [0.75, KEEP_COLOR], [0.76, EXCL_COLOR], [1, EXCL_COLOR]],
+                         customdata=np.array([[flag.loc[i, "tratamiento"]] * len(RULES) for i in flag.index]),
+                         hovertemplate="%{y} · %{x}<br>%{customdata}<extra></extra>"))
+f.update_layout(xaxis=dict(side="top", tickangle=-35, showgrid=False), yaxis=dict(autorange="reversed", showgrid=False, dtick=1), margin=dict(l=170, t=190))
+figs["matrix"] = fig_json(f, max(500, 17 * len(flag) + 200))
+figs["matrix"]["layout"]["margin"].update(l=170, t=190)
+
+# Perfil monetario atípico: distancia al centroide y umbral de Tukey
+dd = EX["distancia_perfil"].dropna().sort_values(ascending=False)
+thr = summ_cl["umbral_tukey"]
+f = go.Figure(go.Bar(x=[M.loc[i, "corto"] for i in dd.index], y=dd.values, marker_color=[EXCL_COLOR if v > thr else "#c3c2b7" for v in dd.values],
+                     hovertemplate="%{x}: %{y:.1f}<extra></extra>"))
+f.add_hline(y=thr, line=dict(color=INK_SECONDARY, dash="dash", width=1), annotation_text="Q3 + 1,5·RIC", annotation_position="top right")
+f.update_layout(xaxis=dict(showticklabels=False, title=f"{len(dd)} países, ordenados"), yaxis_title="Distancia al centroide (componentes monetarios)", bargap=0.1)
+figs["tukey"] = fig_json(f, 360)
+
+# Cobertura temporal del IPC
+yrs = EX["n_anios_ipc"].fillna(0).sort_values()
+min_t = P["trayectorias"]["min_anios_target"]
+f = go.Figure(go.Bar(x=[M.loc[i, "corto"] for i in yrs.index], y=yrs.values, hovertemplate="%{x}: %{y} años<extra></extra>",
+                     marker_color=[EXCL_COLOR if v < min_t else "#c3c2b7" for v in yrs.values]))
+f.add_hline(y=min_t, line=dict(color=INK_SECONDARY, dash="dash", width=1), annotation_text=f"mínimo: {min_t} años (60%)", annotation_position="top left")
+f.update_layout(xaxis=dict(showticklabels=False, title="193 países, ordenados"), yaxis=dict(title="Años con IPC en 2000-2020", range=[0, 22]), bargap=0.1)
+figs["years"] = fig_json(f, 340)
+
+# IPC frente a deflactor
+g = EX.dropna(subset=["media", "media_deflactor"])
+g = g[(g["media"] > 0) & (g["media_deflactor"] > 0)]
+f = go.Figure()
+lo, hi = 0.05, max(g["media_deflactor"].max(), g["media"].max()) * 1.5
+for fac, dash in [(1, "solid"), (2, "dot"), (0.5, "dot")]:
+    f.add_scatter(x=[lo, hi], y=[lo * fac, hi * fac], mode="lines", line=dict(color=INK_MUTED, width=1, dash=dash), showlegend=False, hoverinfo="skip")
+g = g.assign(ratio=np.abs(np.log(g["media_deflactor"] / g["media"])))
+top_gap = set(g[g["brecha_deflactor"]].nlargest(5, "ratio").index)
+for gap, col, name in [(False, "#c3c2b7", "Coinciden (dentro de 2×)"), (True, EXCL_COLOR, "Difieren más de 2×")]:
+    h = g[g["brecha_deflactor"] == gap]
+    f.add_scatter(x=h["media"], y=h["media_deflactor"], mode="markers+text" if gap else "markers", name=name,
+                  text=[es(i) if i in top_gap else "" for i in h.index] if gap else None, textposition=["top center", "bottom center", "middle left", "top right", "bottom right"] * 4 if gap else "top center", textfont=dict(size=10),
+                  marker=dict(color=col, size=8, line=dict(color="#fcfcfb", width=1)), customdata=[M.loc[i, "pais"] for i in h.index],
+                  hovertemplate="%{customdata}<br>IPC %{x:.1f}% · deflactor %{y:.1f}%<extra></extra>")
+tk = [0.1, 1, 10, 100, 1000, 10000]
+f.update_layout(xaxis=dict(type="log", title="Inflación media según IPC (%)", tickvals=tk, ticktext=["0,1", "1", "10", "100", "1.000", "10.000"]),
+                yaxis=dict(type="log", title="Inflación media según deflactor (%)", tickvals=tk, ticktext=["0,1", "1", "10", "100", "1.000", "10.000"]),
+                legend=dict(orientation="h", y=1.08, x=0))
+figs["gap"] = fig_json(f, 440)
+
+# Influencia: distancia de Cook en el modelo de H3
+for s in ["media", "volatilidad"]:
+    c = EX[f"cook_{s}"].dropna().sort_values(ascending=False)
+    lim = 4 / len(c)
+    f = go.Figure(go.Bar(x=[M.loc[i, "corto"] for i in c.index], y=c.values, marker_color=[CATEGORICAL[2] if v > lim else "#c3c2b7" for v in c.values],
+                         hovertemplate="%{x}: %{y:.3f}<extra></extra>"))
+    f.add_hline(y=lim, line=dict(color=INK_SECONDARY, dash="dash", width=1), annotation_text="4/n", annotation_position="top right")
+    f.update_layout(xaxis=dict(tickangle=-60, range=[-0.5, 30.5]), yaxis_title="Distancia de Cook", bargap=0.15)
+    figs[f"cook_{s}"] = fig_json(f, 380)
+    figs[f"cook_{s}"]["layout"]["margin"]["b"] = 110
+
+# Sensibilidad de H3 al tratamiento de los extremos
+SPECS = [("principal", "Especificación principal"), ("con_atipicos", "Con atípicos del perfil"), ("sin_influyentes", "Sin países influyentes"),
+         ("mediana", "Mediana anual en lugar de media"), ("deflactor", "Deflactor en lugar de IPC")]
+rows = []
+for s in ["media", "volatilidad"]:
+    for key, lab in SPECS:
+        if key == "sin_influyentes":
+            r = SENS.query("estadistico == @s and especificacion == @key").iloc[0]
+            rows.append({"s": s, "lab": lab, "d": r["delta_r2adj"], "lo": np.nan, "hi": np.nan, "p": r["p_HC3"]})
+            continue
+        if key == "mediana" and s != "media":
+            continue
+        h = pd.read_csv(D / ("reg_h3.csv" if key == "principal" else f"reg_h3_{key}.csv")).set_index("estadistico").loc[s]
+        rows.append({"s": s, "lab": lab, "d": h["delta_r2adj"], "lo": h["delta_ic95_inf"], "hi": h["delta_ic95_sup"], "p": h["p_HC3_holm"]})
+    jk = SENS.query("estadistico == @s").set_index("especificacion")
+    rows.append({"s": s, "lab": "Jackknife (rango al quitar cada país)", "d": np.nan, "lo": jk.loc["jackknife_min", "delta_r2adj"],
+                 "hi": jk.loc["jackknife_max", "delta_r2adj"], "p": jk.loc["jackknife_p_max", "p_HC3"]})
+fr = pd.DataFrame(rows)
+f = make_subplots(rows=1, cols=2, subplot_titles=["Nivel (media)", "Volatilidad"], shared_yaxes=True, horizontal_spacing=0.04)
+for j, s in enumerate(["media", "volatilidad"]):
+    d = fr[fr["s"] == s]
+    f.add_scatter(x=d["d"], y=d["lab"], mode="markers", marker=dict(color=CATEGORICAL[0], size=10), showlegend=False,
+                  error_x=dict(type="data", symmetric=False, array=(d["hi"] - d["d"]).fillna(0), arrayminus=(d["d"] - d["lo"]).fillna(0), color=CATEGORICAL[0]),
+                  customdata=d["p"], hovertemplate="%{y}: ΔR² ajustado %{x:.3f} · p = %{customdata:.4f}<extra></extra>", row=1, col=j + 1)
+    jkr = d[d["d"].isna()]
+    f.add_scatter(x=[jkr["lo"].iloc[0], jkr["hi"].iloc[0]], y=[jkr["lab"].iloc[0]] * 2, mode="lines+markers", line=dict(color=CATEGORICAL[2], width=6),
+                  marker=dict(size=8, color=CATEGORICAL[2]), showlegend=False, hovertemplate="jackknife: %{x:.3f}<extra></extra>", row=1, col=j + 1)
+    f.add_vline(x=0, line=dict(color=INK_MUTED, width=1), row=1, col=j + 1)
+f.update_yaxes(autorange="reversed", showgrid=False)
+f.update_xaxes(title_text="Mejora del R² ajustado (IC 95% bootstrap)")
+f.update_layout(margin=dict(l=260))
+figs["sens"] = fig_json(f, 380)
+figs["sens"]["layout"]["margin"]["l"] = 260
+
+# Tabla de pruebas y tratamiento
+TESTS = [("Datos faltantes en las features", f"&gt; {P['paises']['umbral_missingness_exclusion']}% de las features sin dato", "excl_faltantes",
+          "Se excluye del análisis", "—"),
+         ("Inflación sin dato suficiente", f"&lt; {P['trayectorias']['min_anios']} años de IPC", "sin_ipc", "Fuera de los modelos (la inflación nunca se imputa)", "Variante con el deflactor"),
+         ("Serie de inflación corta", f"&lt; {min_t} años de IPC (60% del período, igual que las features)", "serie_corta", "Fuera de los modelos principales", "Variante con el deflactor"),
+         ("Perfil monetario atípico", "Distancia al centroide &gt; Q3 + 1,5·RIC (Tukey)", "atipico_perfil", "Fuera del clustering y de los modelos principales", "Variante «con atípicos»"),
+         ("Inflación media extrema", "log(media) &gt; Q3 + 1,5·RIC", "inflacion_extrema", "Se mantiene; transformación logarítmica", "Mediana anual, HC3, permutaciones"),
+         ("Episodios de inflación alta", "Algún año &gt; 40% en 2000-2020", "episodio_40", "Se mantiene", "Mediana anual; tendencia de Theil-Sen"),
+         ("Medición inconsistente", "Media del IPC y del deflactor difieren más de 2×", "brecha_deflactor", "Se mantiene", "Variante con el deflactor"),
+         ("Influencia en el modelo", "Distancia de Cook &gt; 4/n en el modelo de H3", "influyente", "Se mantiene", "Reestimación sin ellos; jackknife")]
+trs = "".join(f"<tr><td>{a}</td><td>{b}</td><td class='n'>{int(EX[k].sum())}</td><td>{d}</td><td>{e}</td></tr>" for a, b, k, d, e in TESTS)
+table_tests = ('<div class="tablebox" style="max-height:none"><table><thead><tr><th>Problema</th><th>Criterio de detección</th><th class="n">Países</th>'
+               f"<th>Tratamiento</th><th>Prueba de que no cambia el resultado</th></tr></thead><tbody>{trs}</tbody></table></div>")
+
+# Textos calculados
+bad = fr[(fr["lo"] <= 0) & fr["d"].notna()]
+sens_txt = ("La mejora es positiva en todas las especificaciones y su intervalo nunca incluye el cero." if bad.empty else
+            "La mejora es positiva en todas las especificaciones; su intervalo excluye el cero en todas salvo " +
+            ", ".join(f"{r.lab[0].lower() + r.lab[1:]} ({'nivel' if r.s == 'media' else 'volatilidad'})" for r in bad.itertuples()) + ".")
+n_flag, n_out = len(flag), int((~EX["en_modelos_principales"] & EX.index.isin(flag.index)).sum())
+sm_ = SENS.set_index(["estadistico", "especificacion"])
+gap_cases = ", ".join(es(i) for i in g[g["brecha_deflactor"]].nlargest(4, "ratio").index)
+top_cook = ", ".join(es(i) for i in EX["cook_media"].dropna().sort_values(ascending=False).index[:4])
+lim_inf = float(np.exp(np.log(EX["media"][EX["media"] > 0]).quantile(0.75) + 1.5 * np.subtract(*np.log(EX["media"][EX["media"] > 0]).quantile([0.75, 0.25]))))
+r_mv = rho.loc["Media", "Volatilidad"]
+
+body = kpis([(str(n_flag), "países marcados por al menos una regla"), (str(int(EX["en_modelos_principales"].sum())), "países en los modelos principales"),
+             (fmt(sk[("media", "original")], 1) + " → " + fmt(sk[("media", "transformada")], 1), "asimetría de la media: original → log"),
+             (fmt(sm_.loc[("media", "jackknife_p_max"), "p_HC3"], 3), "peor p de H3 (nivel) al quitar cualquier país")])
+body += '<div class="grid">'
+body += card("dist", "Distribución de los tres estadísticos de trayectoria",
+             "Histogramas de la media, la tendencia y la volatilidad de la inflación en los países de los modelos principales, en escala original y transformada.",
+             controls=seg("dist", [("dist_original", "Escala original"), ("dist_transformada", "Escala transformada")]), fig_key="dist_original",
+             read=(f"<b>Lectura.</b> En escala original las tres distribuciones son muy asimétricas: unos pocos países concentran valores muy altos "
+                   f"(asimetría de {fmt(sk[('media', 'original')], 1)} en la media y {fmt(sk[('volatilidad', 'original')], 1)} en la volatilidad). "
+                   f"El logaritmo deja la media casi simétrica ({fmt(sk[('media', 'transformada')], 2)}) y reduce mucho la de la volatilidad "
+                   f"({fmt(sk[('volatilidad', 'transformada')], 2)}). La tendencia conserva colas pesadas aun con asinh "
+                   f"(asimetría {fmt(sk[('tendencia', 'transformada')], 1)}): por eso se contrasta con la pendiente robusta de Theil-Sen."),
+             foot="Ninguna distribución es normal (Shapiro-Wilk p &lt; 0,01 en todas): la inferencia usa errores HC3, permutaciones y bootstrap, que no lo requieren.",
+             full=True, height=360)
+body += card("corr", "Relaciones entre la inflación y las cuatro dimensiones",
+             "Correlación de rangos (Spearman) entre los estadísticos de inflación y el primer componente principal de cada dimensión (estadístico: media).",
+             read=(f"<b>Lectura.</b> El nivel y la volatilidad de la inflación están muy asociados (ρ = {fmt(r_mv, 2)}), mientras que la tendencia va por otro lado. "
+                   f"Los primeros componentes de las cuatro dimensiones están muy correlacionados entre sí (|ρ| hasta {fmt(pc1.max().max(), 2)}): comparten un gradiente "
+                   "de desarrollo. Esto anticipa que será difícil atribuir un efecto a una sola dimensión, y justifica contrastar los bloques en conjunto (H3)."),
+             height=480)
+body += card("rules", "Ocho reglas para detectar casos extremos",
+             "Cantidad de países que marca cada regla. En naranja, las reglas que excluyen al país de los modelos principales; en azul, las que lo mantienen con pruebas de robustez.",
+             read=("<b>Lectura.</b> Solo se excluye un país cuando falta información para medirlo (features o IPC insuficientes) o cuando su perfil monetario está tan alejado "
+                   "del resto que distorsionaría los grupos. La inflación alta, por sí sola, nunca es motivo de exclusión: es parte del fenómeno a explicar."),
+             height=360)
+body += card("matrix", "Mapa de casos extremos: qué regla marca a cada país",
+             "Cada fila es un país marcado por al menos una regla. Pasá el cursor para ver el tratamiento que recibe.",
+             read=(f"<b>Lectura.</b> {n_flag} países activan alguna regla, pero solo {n_out} quedan fuera de los modelos principales. Los casos más extremos acumulan varias "
+                   "reglas a la vez: Sudán del Sur y Zimbabue tienen inflación extrema, series cortas y un perfil monetario atípico; Venezuela tiene una serie corta que "
+                   "termina justo antes de su hiperinflación."),
+             full=True, height=max(500, 17 * len(flag) + 200))
+body += card("years", "Cobertura temporal de la inflación",
+             "Años con dato de IPC entre 2000 y 2020 por país. En naranja, los que no alcanzan el mínimo exigido.",
+             read=(f"<b>Lectura.</b> La gran mayoría de los países tiene la serie completa. Se exige el mismo 60% de los años que a las features ({min_t} de 21): con menos, "
+                   "la media no describe la trayectoria del período. El caso que motiva la regla es Venezuela: su IPC cubre solo 2009-2016, los años previos a la hiperinflación, de modo que su "
+                   "media (73%) no refleja lo que ocurrió después."),
+             foot="Argentina tiene IPC en WDI solo para 2018-2020; con el deflactor se recupera en la variante correspondiente.", height=340)
+body += card("tukey", "Perfil monetario atípico",
+             "Distancia de cada país al centro de los componentes monetarios. Por encima de la línea (Q3 + 1,5·RIC), el perfil se considera atípico.",
+             read=(f"<b>Lectura.</b> {int(EX['atipico_perfil'].sum())} países tienen perfiles monetarios muy alejados del resto. Se dejan fuera del clustering porque, con "
+                   "K-means, un punto lejano puede formar un grupo propio o arrastrar a otro. La regla mira solo las variables explicativas, no la inflación; aun así, "
+                   "incluye a dos de los países con inflación más alta, por lo que se reincorporan en una variante de los modelos."),
+             height=360)
+body += card("gap", "Dos medidas de inflación: IPC frente a deflactor",
+             "Inflación media según el IPC (eje horizontal) y según el deflactor del PIB (eje vertical). Las líneas punteadas marcan una diferencia de 2×.",
+             read=(f"<b>Lectura.</b> Las dos medidas coinciden en casi todos los países. Las brechas grandes ({gap_cases}) señalan problemas de medición o series que "
+                   "cubren períodos distintos. Por eso toda la estimación se repite con el deflactor como variable dependiente."),
+             foot="Ejes logarítmicos. Solo países con ambas medias positivas.", height=440)
+body += card("cook", "Influencia de cada país en el modelo de H3",
+             "Distancia de Cook de los 30 países más influyentes en el modelo con las cuatro dimensiones. Por encima de 4/n, el país influye de forma apreciable en las estimaciones.",
+             controls=seg("cook", [("cook_media", "Nivel (media)"), ("cook_volatilidad", "Volatilidad")]), fig_key="cook_media",
+             read=(f"<b>Lectura.</b> Los países más influyentes en el nivel son {top_cook}: casos en los extremos de la distribución, tanto por inflación alta como por "
+                   "inflación muy baja. Que influyan no significa que deban excluirse; significa que hay que comprobar que el resultado no depende de ellos."),
+             height=380)
+body += card("sens", "¿Depende H3 del tratamiento de los extremos?",
+             "Mejora del R² ajustado al sumar las dimensiones no monetarias, en cada especificación (punto e intervalo bootstrap del 95%). En verde, el rango al quitar los países de a uno.",
+             read=(f"<b>Resultado.</b> {sens_txt} Sin los países influyentes, la mejora en el nivel "
+                   f"pasa de {fmt(sm_.loc[('media', 'principal'), 'delta_r2adj'], 3)} a {fmt(sm_.loc[('media', 'sin_influyentes'), 'delta_r2adj'], 3)}; al quitar cualquier país "
+                   f"va de {fmt(sm_.loc[('media', 'jackknife_min'), 'delta_r2adj'], 3)} a {fmt(sm_.loc[('media', 'jackknife_max'), 'delta_r2adj'], 3)}. Los extremos no sostienen el "
+                   "resultado; si algo, lo atenúan."),
+             foot="Sin países influyentes: reestimación sin intervalo bootstrap (p HC3 &lt; 0,001). p de cada especificación en el cursor (corregido por Holm salvo jackknife).",
+             full=True, height=380)
+body += card("tests", "Pruebas realizadas y tratamiento de cada caso", "Resumen de las reglas, el criterio exacto, cuántos países afecta y cómo se comprobó que la decisión no determina los resultados.",
+             read=("<b>Principio.</b> Ningún valor de la inflación se recorta, se winsoriza ni se imputa. Los casos extremos se conservan siempre que puedan medirse, y su "
+                   "efecto se controla con transformaciones, inferencia robusta y especificaciones alternativas."),
+             full=True, body=table_tests)
+body += "</div>"
+(OUT / "04_extremos.html").write_text(page("04_extremos.html", "Distribuciones y casos extremos",
+    "Cómo se distribuyen las variables del análisis, qué países son extremos y por qué, y cómo se tratan.",
+    "Mostrar la forma de las distribuciones que se modelan, detectar los casos extremos con reglas explícitas, decidir su tratamiento y comprobar que las conclusiones no dependen de esa decisión.",
+    body, figs, REPO, sources=SOURCES), encoding="utf-8")
+
+# ---------------------------------------------------------------- 5 · H1
+figs = {}
+tgt = targets.load("principal")
 sizes = labels.value_counts()
 m = go.Figure(go.Choropleth(locations=labels.index, z=[ORDER.index(int(k)) for k in labels], text=[NAMES[int(k)] for k in labels],
                             colorscale=[[i / 4, GCOL[k]] for i, k in enumerate(ORDER)], zmin=0, zmax=4, showscale=False,
@@ -357,19 +615,21 @@ figs["groupmap"]["layout"]["margin"] = dict(l=0, r=0, t=10, b=10)
 
 X = pd.read_parquet(D / "features_crudas.parquet")
 ind = {"FS.AST.PRVT.GD.ZS": "Crédito al sector privado (% PIB)", "FM.LBL.BMNY.GD.ZS": "Dinero amplio (% PIB)", "FM.LBL.BMNY.ZG": "Crecimiento del dinero amplio",
-       "FR.INR.LEND": "Tasa de interés activa", "GC.REV.XGRT.GD.ZS": "Ingresos fiscales (% PIB)", "GC.TAX.TOTL.GD.ZS": "Recaudación tributaria (% PIB)",
+       "GC.XPN.INTP.RV.ZS": "Pago de intereses (% ingresos)", "GC.REV.XGRT.GD.ZS": "Ingresos fiscales (% PIB)", "GC.TAX.TOTL.GD.ZS": "Recaudación tributaria (% PIB)",
        "NE.CON.GOVT.ZS": "Consumo del gobierno (% PIB)", "SH.XPD.GHED.GD.ZS": "Gasto público en salud (% PIB)", "NY.GNS.ICTR.ZS": "Ahorro bruto (% PIB)",
        "FI.RES.TOTL.MO": "Reservas (meses de importación)"}
+ind = {k: v for k, v in ind.items() if f"{k}__media" in X}
 R = X[[f"{c}__media" for c in ind]].rank(pct=True).mul(100)
 prof = R.loc[labels.index].groupby(labels).median().T[ORDER]
 f = go.Figure(go.Heatmap(z=prof.values, x=[SHORT[k] for k in ORDER], y=list(ind.values()), colorscale=DIVERGING, zmid=50, zmin=0, zmax=100,
                          texttemplate="%{z:.0f}", hovertemplate="%{y} · %{x}: percentil %{z:.0f}<extra></extra>", xgap=2, ygap=2,
                          colorbar=dict(thickness=10, title="pct.")))
-f.update_layout(xaxis=dict(side="top", showgrid=False, tickangle=0, tickfont=dict(size=11)), yaxis=dict(autorange="reversed", showgrid=False))
-figs["profiles"] = fig_json(f, 500)
-figs["profiles"]["layout"]["margin"] = dict(l=210, r=10, t=60, b=10)
+f.update_layout(xaxis=dict(side="top", showgrid=False, tickangle=-35, tickfont=dict(size=10)), yaxis=dict(autorange="reversed", showgrid=False))
+figs["profiles"] = fig_json(f, 540)
+figs["profiles"]["layout"]["margin"] = dict(l=210, r=10, t=110, b=10)
+low = prof[1].loc[[f"{c}__media" for c in ["FS.AST.PRVT.GD.ZS", "FM.LBL.BMNY.GD.ZS", "GC.TAX.TOTL.GD.ZS"] if c in ind]]
 
-y = target.loc[labels.index]
+y = tgt.loc[labels.index]
 TIT = {"media": "Inflación media (%)", "tendencia": "Tendencia (p.p./año)", "volatilidad": "Volatilidad (p.p.)"}
 TICK = {"media": [0.3, 1, 3, 10, 30], "volatilidad": [0.5, 1, 3, 10, 30, 100], "tendencia": [-10, -1, 0, 1, 10]}
 for stat in STAT:
@@ -382,6 +642,8 @@ for stat in STAT:
     f.update_layout(yaxis=dict(title=TIT[stat], tickvals=TRF[stat](np.array(TICK[stat], dtype=float)), ticktext=[str(v).replace(".", ",") for v in TICK[stat]]),
                     xaxis=dict(tickangle=0, tickfont=dict(size=11)))
     figs[f"box_{stat}"] = fig_json(f, 440)
+rent = y.loc[labels[labels == 3].index, "media"].dropna()
+cv_grp = y["media"].groupby(labels).apply(lambda v: v.std() / v.mean())
 
 tests = pd.read_csv(D / "h1_tests.csv")
 f = go.Figure()
@@ -393,6 +655,14 @@ f.update_layout(barmode="stack", xaxis=dict(range=[0, 100], title="% de la varia
 figs["decomp"] = fig_json(f, 300)
 figs["decomp"]["layout"]["margin"]["l"] = 170
 
+reg_ref = pd.read_csv(D / "h1_region.csv").set_index("estadistico")
+f = go.Figure()
+for j, (col, lab) in enumerate([("eta2_perfil", "Perfil monetario-fiscal (5 grupos)"), ("eta2_region", "Región ONU (5 regiones)")]):
+    f.add_bar(x=[STAT[s] for s in reg_ref.index], y=100 * reg_ref[col], name=lab, marker_color=[CATEGORICAL[0], "#c3c2b7"][j],
+              text=[f"{fmt(100 * v, 0)}%" for v in reg_ref[col]], textposition="outside", hovertemplate="%{x} · " + lab + ": %{y:.1f}%<extra></extra>")
+f.update_layout(barmode="group", yaxis=dict(title="% de la variación explicada (η²)", range=[0, 50]), legend=dict(orientation="h", y=1.1, x=0))
+figs["region"] = fig_json(f, 340)
+
 sens = pd.read_csv(D / "h1_sensibilidad.csv")
 sens["config"] = sens["algoritmo"].str.replace("Jerarquico", "Jerárquico") + " " + sens["parametro"].replace("-", "") + " · k=" + sens["k"].astype(str)
 f = go.Figure()
@@ -402,6 +672,8 @@ for i, s in enumerate(STAT):
 f.update_layout(xaxis=dict(title="% de la variación explicada por el grupo", range=[0, 50]), yaxis=dict(autorange="reversed", showgrid=False), margin=dict(l=190))
 figs["sens"] = fig_json(f, 460)
 figs["sens"]["layout"]["margin"]["l"] = 190
+stable = sens[sens["ari_bootstrap"] >= P["clustering"]["ari_minimo"]]
+rng = {s: (100 * stable[f"eta2_{s}"].min(), 100 * stable[f"eta2_{s}"].max()) for s in STAT}
 
 grid = pd.read_csv(D / "clustering_grid.csv").dropna(subset=["ari_bootstrap"])
 grid["config"] = grid["algoritmo"].str.replace("Jerarquico", "Jerárq.") + " " + grid["parametro"].replace("-", "") + " k=" + grid["k"].astype(str)
@@ -410,51 +682,60 @@ f = go.Figure()
 f.add_hrect(y0=P["clustering"]["ari_minimo"], y1=1.02, fillcolor=NEUTRAL, line_width=0, layer="below")
 show_lab = ch | (grid["silhouette"] == grid["silhouette"].max())
 f.add_scatter(x=grid["silhouette"], y=grid["ari_bootstrap"], mode="markers+text", text=np.where(show_lab, grid["config"], ""), customdata=grid["config"],
-              textposition="top center", textfont=dict(size=11, color=INK_SECONDARY),
+              textposition="top left", textfont=dict(size=11, color=INK_SECONDARY),
               marker=dict(size=np.where(ch, 16, 10), color=np.where(ch, CATEGORICAL[1], CATEGORICAL[0]), line=dict(color="#fcfcfb", width=2)),
               hovertemplate="%{customdata}<br>silhouette %{x:.3f} · ARI %{y:.2f}<extra></extra>", showlegend=False)
 f.update_layout(xaxis_title="Silhouette (separación entre grupos)", yaxis=dict(title="ARI bootstrap (estabilidad)", range=[0, 1.05]))
 figs["stab"] = fig_json(f, 420)
+gmm4 = grid[(grid["algoritmo"] == "GMM") & (grid["parametro"] == "tied") & (grid["k"] == 4)]
 
-e = tests.set_index("estadistico")["eta2_transformado"]
+e = tests.set_index("estadistico")
+n_mon = len([c for c in scores.columns if c.startswith("MONETARIA_")])
+eta_txt = f"{fmt(100 * e.loc['media', 'eta2_transformado'], 0)}% de la variación de la media, {fmt(100 * e.loc['tendencia', 'eta2_transformado'], 0)}% de la tendencia y {fmt(100 * e.loc['volatilidad', 'eta2_transformado'], 0)}% de la volatilidad"
+within = (100 * (1 - e["eta2_transformado"].max()), 100 * (1 - e["eta2_transformado"].min()))
 body = kpis([(str(summ_cl["config"]["k"]), "grupos (K-means)"), (str(summ_cl["n_cluster"]), "países agrupados"),
-             (f"{fmt(100 * e['media'], 0)}%", "de la variación de la inflación media explicada por el grupo"),
-             (f"{fmt(100 * e['tendencia'], 0)}%", "de la tendencia"), (f"{fmt(100 * e['volatilidad'], 0)}%", "de la volatilidad")])
+             (f"{fmt(100 * e.loc['media', 'eta2_transformado'], 0)}%", "de la variación de la inflación media explicada por el grupo"),
+             (f"{fmt(100 * e.loc['tendencia', 'eta2_transformado'], 0)}%", "de la tendencia"), (f"{fmt(100 * e.loc['volatilidad', 'eta2_transformado'], 0)}%", "de la volatilidad")])
 body += '<div class="grid">'
 body += card("groupmap", "Cinco perfiles monetario-fiscales",
-             "Países agrupados por su perfil monetario-fiscal 2000-2020 (36 componentes principales de la dimensión monetaria). La inflación no interviene en la formación de los grupos.",
+             f"Países agrupados por su perfil monetario-fiscal 2000-2020 ({n_mon} componentes principales de la dimensión monetaria). La inflación no interviene en la formación de los grupos.",
              read="<b>Lectura.</b> Los grupos tienen una geografía reconocible: economías avanzadas, un amplio grupo de ingreso medio, rentistas de recursos naturales, pequeñas economías con Estado grande y economías de baja profundidad financiera, sobre todo en África subsahariana.",
-             foot=f"En blanco: los {len(summ_cl['atipicos'])} países atípicos en el espacio monetario (excluidos del ajuste) y los 10 excluidos por información insuficiente.", full=True, height=460)
+             foot=f"En blanco: los {len(summ_cl['atipicos'])} países atípicos en el espacio monetario (excluidos del ajuste) y los {len(summ_feat['paises_excluidos'])} excluidos por información insuficiente.", full=True, height=460)
 body += card("profiles", "¿Qué distingue a cada grupo?",
-             "Mediana de cada grupo en indicadores monetario-fiscales seleccionados, expresada como percentil entre los 183 países (50 = país típico).",
-             read="<b>Lectura.</b> Las avanzadas combinan máxima profundidad financiera y presión fiscal con tasas y crecimiento monetario bajos. Las rentistas ahorran mucho y recaudan poco: el Estado se financia con la renta de los recursos. En las de baja profundidad financiera, crédito, dinero y recaudación están en el percentil 12-22.",
+             f"Mediana de cada grupo en indicadores monetario-fiscales seleccionados, expresada como percentil entre los {summ_feat['paises_analisis']} países (50 = país típico).",
+             read=f"<b>Lectura.</b> Las avanzadas combinan la mayor profundidad financiera y presión fiscal. Las rentistas ahorran mucho y recaudan poco: el Estado se financia con la renta de los recursos. En las de baja profundidad financiera, crédito, dinero y recaudación están entre los percentiles {fmt(low.min(), 0)} y {fmt(low.max(), 0)}.",
              foot="Se usan percentiles porque algunos países tienen valores extremos (por ejemplo, el crecimiento monetario en hiperinflaciones) que distorsionarían una escala en desvíos estándar.", height=480)
 body += card("box", "La inflación dentro de cada grupo",
              "Distribución de los estadísticos de inflación en cada grupo: cada punto es un país. Elegí el estadístico.",
-             read="<b>Lectura.</b> Las diferencias entre grupos existen, sobre todo en volatilidad, pero domina la dispersión interna: en «Rentistas de recursos» la inflación media va de 0,4% (Brunéi) a 72,7% (Venezuela). Solo las avanzadas forman un grupo homogéneo.",
+             read=f"<b>Lectura.</b> Las diferencias entre grupos existen, sobre todo en volatilidad, pero domina la dispersión interna: en «Rentistas de recursos» la inflación media va de {fmt(rent.min())}% ({es(rent.idxmin())}) a {fmt(rent.max())}% ({es(rent.idxmax())}). Las avanzadas son el grupo más homogéneo (coeficiente de variación {fmt(cv_grp[2], 2)}, frente a {fmt(cv_grp.drop(2).min(), 2)}-{fmt(cv_grp.drop(2).max(), 2)} en el resto).",
              foot="Ejes en escala logarítmica (media, volatilidad) y asinh (tendencia).", height=440,
              controls=seg("box", [("box_media", "Media"), ("box_tendencia", "Tendencia"), ("box_volatilidad", "Volatilidad")]), fig_key="box_media")
 body += card("decomp", "Prueba de H1: ¿cuánta variación queda dentro de los grupos?",
              "Descomposición de la variación de cada estadístico (escala transformada) entre grupos y dentro de los grupos (η²).",
-             read="<b>Resultado.</b> El perfil monetario-fiscal explica una parte significativa pero minoritaria: entre el 69% y el 98% de la variación ocurre <b>dentro</b> de los grupos. <b>H1 se sostiene</b>: compartir perfil no implica compartir trayectoria inflacionaria.",
-             foot="Significancia por permutación (5.000 permutaciones): p < 0,001 para media y volatilidad; p = 0,52 para la tendencia. Muestra: 171 países con trayectoria de IPC.",
+             read=f"<b>Resultado.</b> El perfil monetario-fiscal explica una parte significativa pero minoritaria: entre el {fmt(within[0], 0)}% y el {fmt(within[1], 0)}% de la variación ocurre <b>dentro</b> de los grupos. <b>H1 se sostiene</b>: compartir perfil no implica compartir trayectoria inflacionaria.",
+             foot=f"Permutación (5.000): p &lt; 0,001 para media y volatilidad; p = {fmt(e.loc['tendencia', 'p_permutacion'], 2)} para la tendencia. Muestra: {int(e.loc['media', 'n'])} países con al menos {P['trayectorias']['min_anios_target']} años de IPC.",
              full=True, height=300)
+body += card("region", "¿Son los perfiles solo regiones?",
+             "Variación de la inflación explicada por el perfil monetario-fiscal frente a la explicada por la región ONU, con la misma cantidad de grupos.",
+             read=f"<b>Lectura.</b> Los perfiles tienen una geografía marcada (V de Cramér con la región = {fmt(reg_ref['cramer_v_perfil_region'].iloc[0], 2)}), pero explican {fmt((reg_ref['eta2_perfil'] / reg_ref['eta2_region']).loc[['media', 'volatilidad']].min(), 1)} a {fmt((reg_ref['eta2_perfil'] / reg_ref['eta2_region']).loc[['media', 'volatilidad']].max(), 1)} veces más variación que la región en la media y la volatilidad: capturan algo más que la ubicación geográfica.",
+             foot="η² con las mismas transformaciones; significancia por permutación.", height=340)
 body += card("sens", "¿Depende el resultado del algoritmo elegido?",
-             "Variación explicada por el grupo en 13 configuraciones alternativas de clustering.",
-             read="<b>Lectura.</b> En las configuraciones estables, el grupo explica 20-27% de la media, 0-12% de la tendencia y 29-34% de la volatilidad. En ninguna supera un tercio: la conclusión de H1 no depende de la configuración.",
-             foot="Los valores más bajos corresponden a soluciones jerárquicas inestables con grupos minúsculos.", height=460)
+             f"Variación explicada por el grupo en {len(sens)} configuraciones alternativas de clustering.",
+             read=f"<b>Lectura.</b> En las configuraciones estables, el grupo explica {fmt(rng['media'][0], 0)}-{fmt(rng['media'][1], 0)}% de la media, {fmt(rng['tendencia'][0], 0)}-{fmt(rng['tendencia'][1], 0)}% de la tendencia y {fmt(rng['volatilidad'][0], 0)}-{fmt(rng['volatilidad'][1], 0)}% de la volatilidad. En ninguna supera el 40%: la conclusión de H1 no depende de la configuración.",
+             foot="Los valores más bajos corresponden a soluciones jerárquicas inestables.", height=460)
 body += card("stab", "Calidad vs. estabilidad: cómo se eligió la configuración",
              "Las 12 mejores configuraciones según silhouette, frente a su estabilidad cuando se vuelve a agrupar con submuestras del 80% de los países.",
-             read="<b>Lectura.</b> Todas las silhouettes son bajas (≤ 0,23): los perfiles forman un continuo más que tipos discretos. La regla, fijada antes de ver los resultados, exige estabilidad (ARI ≥ 0,60, zona gris) y grupos de al menos 5 países, y elige K-means con k = 5 (naranja).",
-             foot="GMM tied, la configuración de la versión original de la tesis, queda por debajo del umbral de estabilidad.", height=420)
+             read=f"<b>Lectura.</b> Todas las silhouettes son bajas (≤ {fmt(grid['silhouette'].max(), 2)}): los perfiles forman un continuo más que tipos discretos. La regla, fijada antes de ver los resultados, exige estabilidad (ARI ≥ {fmt(P['clustering']['ari_minimo'], 2)}, zona gris) y grupos de al menos {P['clustering']['tamanio_minimo']} países, y elige K-means con k = {summ_cl['config']['k']} (naranja, ARI {fmt(summ_cl['config']['ari_bootstrap'], 2)}).",
+             foot=(f"GMM tied con k = 4, la configuración de la versión original de la tesis, tiene ARI {fmt(gmm4['ari_bootstrap'].iloc[0], 2)}." if len(gmm4) else ""), height=420)
 body += "</div>"
-(OUT / "04_h1_perfiles.html").write_text(page("04_h1_perfiles.html", "H1 · Perfiles monetario-fiscales y heterogeneidad inflacionaria",
+(OUT / "05_h1_perfiles.html").write_text(page("05_h1_perfiles.html", "H1 · Perfiles monetario-fiscales y heterogeneidad inflacionaria",
     "¿Los países con perfiles monetario-fiscales similares tienen trayectorias inflacionarias similares?",
     "Agrupar a los países según su perfil monetario-fiscal y medir cuánta de la variación inflacionaria queda dentro de esos grupos. Si la mayor parte de la variación es interna, compartir un perfil monetario-fiscal no basta para explicar la trayectoria (Hipótesis 1).",
     body, figs, REPO, sources=SOURCES), encoding="utf-8")
 
-# ---------------------------------------------------------------- 5 · H2/H3
+# ---------------------------------------------------------------- 6 · H2/H3
 figs = {}
+K = P["regresion"]["componentes_por_bloque"]
 diag = pd.read_csv(D / "reg_diagnosticos.csv")
 f = go.Figure()
 for stat, g in diag.groupby("estadistico", sort=False):
@@ -465,38 +746,30 @@ for j, (mod, lab) in enumerate([("A", "Modelo A · solo monetario"), ("B", "Mode
     f.add_scatter(x=g["r2adj"], y=g["estadistico"].map(STAT), mode="markers+text", name=lab, text=[fmt(v, 2) for v in g["r2adj"]],
                   textposition="top center" if mod == "B" else "bottom center", marker=dict(size=15, color=CATEGORICAL[j], line=dict(color="#fcfcfb", width=2)),
                   hovertemplate="%{y} · " + lab + ": %{x:.3f}<extra></extra>")
-f.update_layout(xaxis=dict(title="R² ajustado", range=[0, 0.45]), yaxis=dict(autorange="reversed", showgrid=False))
-figs["r2"] = fig_json(f, 320)
-figs["r2"]["layout"]["margin"]["l"] = 100
+f.update_layout(xaxis=dict(title="R² ajustado", range=[0, 0.5]), yaxis=dict(autorange="reversed", showgrid=False))
+figs["r2"] = fig_json(f, 340)
+figs["r2"]["layout"]["margin"].update(l=100, t=40)
+dg = diag.set_index(["estadistico", "modelo"])
 
-VAR = {"": "Principal", "_deflactor": "Deflactor del PIB", "_theil_sen": "Tendencia Theil-Sen", "_con_atipicos": "Con atípicos"}
+VAR = {"": "Principal", "_k2": "2 comp. por bloque", "_k3": "3 comp. por bloque", "_deflactor": "Deflactor del PIB", "_mediana": "Mediana anual",
+       "_theil_sen": "Tendencia Theil-Sen", "_con_atipicos": "Con atípicos", "_tasas_nominales": "Control + tasas nominales"}
 rows = []
 for suf, nm in VAR.items():
     for hip in ["h2", "h3"]:
         rows.append(pd.read_csv(D / f"reg_{hip}{suf}.csv").assign(spec=nm, hip=hip.upper()))
 RR = pd.concat(rows)
 RR["prueba"] = RR["hip"] + " · " + RR["estadistico"].map(STAT) + " · " + RR["bloque"].map(lambda b: DIM_LABELS.get(b, "No monetarias"))
-
-
-def level(r):
-    if r["solido"] and r["p_HC3_holm"] < 0.05:
-        return 3
-    if r["solido"]:
-        return 2
-    return 1 if min(r["p"], r["p_HC3"], r["p_permutacion"]) < 0.05 else 0
-
-
-RR["nivel"] = RR.apply(level, axis=1)
+RR["nivel"] = np.where(RR["solido"], 2, np.where(RR[["p", "p_HC3", "p_permutacion"]].min(axis=1) < 0.05, 1, 0))
 order = RR.drop_duplicates("prueba")["prueba"].tolist()
 Mv = RR.pivot(index="prueba", columns="spec", values="nivel").loc[order, list(VAR.values())]
-Pp = RR.pivot(index="prueba", columns="spec", values="p_permutacion").loc[order, list(VAR.values())]
-cs = [[0, "#fcfcfb"], [0.249, "#fcfcfb"], [0.25, "#cde2fb"], [0.499, "#cde2fb"], [0.5, "#6da7ec"], [0.749, "#6da7ec"], [0.75, "#184f95"], [1, "#184f95"]]
-f = go.Figure(go.Heatmap(z=Mv.values, x=list(Mv.columns), y=list(Mv.index), zmin=-0.5, zmax=3.5, colorscale=cs, text=Pp.map(lambda v: fmt(v, 3)).values,
-                         texttemplate="%{text}", xgap=2, ygap=2, hovertemplate="%{y} · %{x}<br>p de permutación %{text}<extra></extra>",
-                         colorbar=dict(tickvals=[0, 1, 2, 3], ticktext=["Sin evidencia", "Indicio", "Sólido", "Sólido + Holm"], thickness=10)))
-f.update_layout(xaxis=dict(side="top", showgrid=False, tickangle=0), yaxis=dict(autorange="reversed", showgrid=False), margin=dict(l=270, t=50))
-figs["robust"] = fig_json(f, 560)
-figs["robust"]["layout"]["margin"] = dict(l=270, r=20, t=50, b=20)
+Pp = RR.pivot(index="prueba", columns="spec", values="p_HC3_holm").loc[order, list(VAR.values())]
+cs = [[0, "#fcfcfb"], [0.333, "#fcfcfb"], [0.334, "#cde2fb"], [0.666, "#cde2fb"], [0.667, "#184f95"], [1, "#184f95"]]
+f = go.Figure(go.Heatmap(z=Mv.values, x=list(Mv.columns), y=list(Mv.index), zmin=-0.5, zmax=2.5, colorscale=cs, text=Pp.map(lambda v: fmt(v, 3)).values,
+                         texttemplate="%{text}", xgap=2, ygap=2, hovertemplate="%{y} · %{x}<br>p HC3 corregido por Holm: %{text}<extra></extra>",
+                         colorbar=dict(tickvals=[0, 1, 2], ticktext=["Sin evidencia", "Indicio", "Sólido"], thickness=10)))
+f.update_layout(xaxis=dict(side="top", showgrid=False, tickangle=-30), yaxis=dict(autorange="reversed", showgrid=False), margin=dict(l=270, t=90))
+figs["robust"] = fig_json(f, 600)
+figs["robust"]["layout"]["margin"] = dict(l=270, r=20, t=90, b=20)
 
 main_tests = RR[RR["spec"] == "Principal"]
 f = go.Figure()
@@ -504,17 +777,31 @@ for i, (hip, g) in enumerate(main_tests.groupby("hip")):
     f.add_scatter(x=g["delta_r2adj"], y=g["prueba"], mode="markers", name=hip, marker=dict(size=11, color=CATEGORICAL[i], symbol=["circle", "diamond"][i]),
                   error_x=dict(type="data", symmetric=False, array=g["delta_ic95_sup"] - g["delta_r2adj"], arrayminus=g["delta_r2adj"] - g["delta_ic95_inf"],
                                color=INK_MUTED, thickness=1.2, width=4),
-                  customdata=np.c_[g["p_HC3"], g["p_permutacion"]], hovertemplate="%{y}<br>ΔR² aj. %{x:.3f} · p HC3 %{customdata[0]:.3f} · p perm. %{customdata[1]:.3f}<extra></extra>")
+                  customdata=np.c_[g["p_HC3_holm"], g["p_permutacion"], g["f2"]],
+                  hovertemplate="%{y}<br>ΔR² aj. %{x:.3f} · f² %{customdata[2]:.2f}<br>p HC3 (Holm) %{customdata[0]:.3f} · p perm. %{customdata[1]:.3f}<extra></extra>")
 f.add_vline(x=0, line=dict(color=INK_SECONDARY, width=1))
 f.update_layout(xaxis=dict(title="ΔR² ajustado", zeroline=False), yaxis=dict(autorange="reversed", showgrid=False), margin=dict(l=270))
 figs["delta"] = fig_json(f, 500)
 figs["delta"]["layout"]["margin"]["l"] = 270
 
+cvr = pd.read_csv(D / "reg_cv.csv")
+SPEC_CV = {"ols_k_balanceado": f"OLS · {K} componentes por bloque", "ridge_todos_los_componentes": "Ridge · todos los componentes"}
+f = go.Figure()
+for j, (sp, lab) in enumerate(SPEC_CV.items()):
+    g = cvr[cvr["especificacion"] == sp]
+    f.add_scatter(x=g["delta_r2_oos"], y=g["estadistico"].map(STAT), mode="markers", name=lab, marker=dict(size=12, color=CATEGORICAL[j], symbol=["circle", "diamond"][j]),
+                  error_x=dict(type="data", symmetric=False, array=g["delta_p95"] - g["delta_r2_oos"], arrayminus=g["delta_r2_oos"] - g["delta_p05"], color=CATEGORICAL[j]),
+                  customdata=g["pct_reps_mejora"], hovertemplate="%{y} · " + lab + ": %{x:.3f}<br>mejora en %{customdata:.0f}% de las repeticiones<extra></extra>")
+f.add_vline(x=0, line=dict(color=INK_SECONDARY, width=1))
+f.update_layout(xaxis_title="Cambio en el R² fuera de muestra (percentiles 5-95)", yaxis=dict(autorange="reversed", showgrid=False), legend=dict(orientation="h", y=1.12, x=0))
+figs["oos"] = fig_json(f, 340)
+figs["oos"]["layout"]["margin"]["l"] = 100
+cvm = cvr.set_index(["estadistico", "especificacion"])
+
 pca = pickle.load(open(D / "pca_resultados.pkl", "rb"))
-scores = pd.read_parquet(D / "pca_scores.parquet")
 import statsmodels.api as sm
-ym = np.log(target.loc[labels.index, "media"].dropna())
-cols = [f"{d}_media__PC{i + 1}" for d in DIMENSION_COLORS for i in range(min(P["regresion"]["componentes_por_bloque"], pca[f"{d}_media"].n_componentes))]
+ym = np.log(tgt.loc[labels.index, "media"].dropna())
+cols = [f"{d}_media__PC{i + 1}" for d in DIMENSION_COLORS for i in range(min(K, pca[f"{d}_media"].n_componentes))]
 fit = sm.OLS(ym, sm.add_constant(scores.loc[ym.index, cols])).fit(cov_type="HC3")
 cf = pd.DataFrame({"coef": fit.params, "se": fit.bse, "p": fit.pvalues}).drop("const")
 cf["dim"] = cf.index.str.split("_").str[0]
@@ -526,57 +813,73 @@ for dim, c in DIMENSION_COLORS.items():
                   hovertemplate="%{y}: %{x:.3f} (p = %{customdata:.3f})<extra></extra>")
 f.add_vline(x=0, line=dict(color=INK_SECONDARY, width=1))
 f.update_layout(xaxis_title="Coeficiente sobre log(inflación media)", yaxis=dict(autorange="reversed", showgrid=False), margin=dict(l=170))
-figs["coef"] = fig_json(f, 400)
+figs["coef"] = fig_json(f, 520)
 figs["coef"]["layout"]["margin"]["l"] = 170
+sig = cf[cf["p"] < 0.05]
 
-h3m = main_tests[(main_tests["hip"] == "H3") & (main_tests["estadistico"] == "media")].iloc[0]
+h3 = main_tests[main_tests["hip"] == "H3"].set_index("estadistico")
+h2_solid = main_tests[(main_tests["hip"] == "H2") & main_tests["solido"]]
+h2_any = RR[(RR["hip"] == "H2") & RR["solido"] & (RR["spec"] != "Control + tasas nominales")]
+h2_txt = ("Ninguna dimensión no monetaria aporta por sí sola en la especificación principal, una vez corregidas las comparaciones múltiples (Holm) y con los bloques en igualdad de condiciones."
+          + (" Solo aparece " + "; ".join(f"la {DIM_LABELS[r.bloque].lower()} sobre la {STAT[r.estadistico].lower()} con {r.spec.lower().replace('ipc', 'IPC').replace('pib', 'PIB')}" for r in h2_any.itertuples())
+             + f", en {h2_any['spec'].nunique()} de {len(VAR) - 1} especificaciones." if len(h2_any) else ""))
+h3_solid = [STAT[s].lower() for s in h3.index if h3.loc[s, "solido"]]
+tn = RR[(RR["spec"] == "Control + tasas nominales") & (RR["hip"] == "H3")].set_index("estadistico")
+spec_ok = RR[(RR["hip"] == "H3") & (RR["estadistico"] == "media")]
 verdicts = f"""<div class="cards3">
 <div class="hyp"><span class="tag yes">● Respaldada</span><h4>H1 · Perfil compartido, trayectorias distintas</h4>
-<p>El grupo monetario-fiscal explica 23% de la variación de la media, 2% de la tendencia y 31% de la volatilidad: la mayor parte ocurre dentro de los grupos.</p></div>
-<div class="hyp"><span class="tag partial">● Evidencia moderada</span><h4>H2 · Aporte de cada dimensión</h4>
-<p>Solo la dimensión estructural sobre el nivel de inflación es significativa en las tres pruebas, pero no supera la corrección por comparaciones múltiples (p = 0,061).</p></div>
-<div class="hyp"><span class="tag yes">● Confirmada para el nivel</span><h4>H3 · Modelo multidimensional</h4>
-<p>Las tres dimensiones no monetarias mejoran el R² ajustado de la media de {fmt(h3m['r2adj_restringido'], 2)} a {fmt(h3m['r2adj_completo'], 2)}, de forma robusta en cuatro especificaciones. No se confirma para tendencia ni volatilidad.</p></div></div>"""
+<p>El grupo monetario-fiscal explica {eta_txt}: la mayor parte de la variación ocurre dentro de los grupos.</p></div>
+<div class="hyp"><span class="tag {'partial' if len(h2_solid) else 'no'}">● {'Evidencia parcial' if len(h2_solid) else 'No respaldada'}</span><h4>H2 · Aporte de cada dimensión</h4>
+<p>{h2_txt}</p></div>
+<div class="hyp"><span class="tag partial">● Parcial: asociación, no predicción</span><h4>H3 · Modelo multidimensional</h4>
+<p>Las tres dimensiones juntas mejoran el R² ajustado del nivel de {fmt(h3.loc['media', 'r2adj_restringido'], 2)} a {fmt(h3.loc['media', 'r2adj_completo'], 2)} (f² = {fmt(h3.loc['media', 'f2'], 2)}), de forma robusta en {int(spec_ok['solido'].sum())} de {len(spec_ok)} especificaciones (falla solo si se agregan tasas nominales al control); también la volatilidad. Pero la mejora casi no se traslada a la predicción fuera de muestra.</p></div></div>"""
 body = verdicts + '<div class="grid">'
 body += card("r2", "Modelo monetario frente a modelo de cuatro dimensiones",
-             "R² ajustado de cada estadístico con solo componentes monetarios (A) y con las cuatro dimensiones (B).",
-             read="<b>Lectura.</b> El perfil monetario explica parte del nivel (0,24) y de la volatilidad (0,33), y casi nada de la tendencia. Agregar las dimensiones no monetarias mejora sobre todo el nivel. La tendencia depende de episodios (desinflaciones, colapsos), no de perfiles estructurales.",
-             foot="171 países. Variables dependientes: log(media), asinh(tendencia), log(volatilidad). En cada bloque se usan los componentes que alcanzan el 30% de la varianza (≥10 países por predictor).",
+             f"R² ajustado de cada estadístico con solo componentes monetarios (A) y con las cuatro dimensiones (B), {K} componentes por dimensión.",
+             read=f"<b>Lectura.</b> El perfil monetario explica parte del nivel ({fmt(dg.loc[('media', 'A'), 'r2adj'], 2)}) y de la volatilidad ({fmt(dg.loc[('volatilidad', 'A'), 'r2adj'], 2)}), y casi nada de la tendencia ({fmt(dg.loc[('tendencia', 'A'), 'r2adj'], 2)}). Agregar las tres dimensiones no monetarias suma entre {fmt(h3['delta_r2adj'].min(), 2)} y {fmt(h3['delta_r2adj'].max(), 2)} de R² ajustado.",
+             foot=f"{int(dg.loc[('media', 'B'), 'n'])} países. Variables dependientes: log(media), asinh(tendencia), log(volatilidad). Cada dimensión entra con {K} componentes principales, el máximo que respeta 10 países por predictor, para comparar bloques con los mismos grados de libertad.",
              full=True, height=320)
 body += card("delta", "Aporte de cada bloque (especificación principal)",
              "Mejora del R² ajustado al agregar cada dimensión (H2) o las tres juntas (H3), con su intervalo de confianza bootstrap.",
-             read="<b>Lectura.</b> Solo H3 para la media tiene un intervalo claramente positivo y pruebas significativas. El intervalo bootstrap tiende a sesgarse hacia valores positivos, por eso la evidencia principal son las pruebas HC3 y de permutación.",
-             foot="Pasá el cursor para ver los p-valores robusto (HC3) y de permutación. IC 95% bootstrap percentil (2.000 remuestras).", full=True, height=500)
-body += card("robust", "Robustez en cuatro especificaciones",
-             "Nivel de evidencia de cada prueba bajo especificaciones alternativas. El número es el p-valor de permutación.",
-             read="<b>Lectura.</b> H3 para la media es el único resultado sólido y robusto a la corrección de Holm en las cuatro especificaciones. El efecto estructural sobre la media es sólido en dos de ellas y queda como indicio en las otras dos.",
-             foot="Sólido: p HC3 < 0,05, p de permutación < 0,05 e IC del ΔR² por encima de 0. Indicio: alguna prueba con p < 0,05. Holm: corrección por comparaciones múltiples.", full=True, height=560)
+             read=f"<b>Lectura.</b> Ninguna dimensión aporta por sí sola de forma sólida. Juntas, en cambio, mejoran el ajuste del {' y la '.join(h3_solid)}: el aporte es <b>conjunto</b>. Con f² = {fmt(h3.loc['media', 'f2'], 2)} en el nivel, el efecto es mediano según la convención de Cohen (0,02 pequeño; 0,15 mediano; 0,35 grande).",
+             foot="Pasá el cursor para ver f², el p-valor HC3 corregido por Holm y el de permutación. IC 95% bootstrap percentil (2.000 remuestras).", full=True, height=500)
+body += card("oos", "¿Mejora la capacidad de predecir?",
+             "Cambio en el R² fuera de muestra al sumar las dimensiones no monetarias (validación cruzada de 10 particiones, 50 repeticiones).",
+             read=f"<b>Lectura.</b> La mejora dentro de muestra casi no se traslada a países no vistos: en el nivel, el R² fuera de muestra cambia {fmt(cvm.loc[('media', 'ols_k_balanceado'), 'delta_r2_oos'], 3)} con OLS y {fmt(cvm.loc[('media', 'ridge_todos_los_componentes'), 'delta_r2_oos'], 3)} con ridge. Solo con ridge y todos los componentes aparece una ganancia pequeña pero consistente en la volatilidad (mejora en el {fmt(cvm.loc[('volatilidad', 'ridge_todos_los_componentes'), 'pct_reps_mejora'], 0)}% de las repeticiones). Las dimensiones no monetarias describen diferencias entre países, pero no son una herramienta de predicción.",
+             foot="Ridge con penalización elegida por validación cruzada interna, usando todos los componentes retenidos por el PCA (70% de la varianza de cada bloque).", full=True, height=340)
+body += card("robust", f"Robustez en {len(VAR)} especificaciones",
+             "Nivel de evidencia de cada prueba bajo especificaciones alternativas. El número es el p-valor HC3 corregido por Holm.",
+             read=f"<b>Lectura.</b> H3 en el nivel es sólida en todas las especificaciones salvo una: si se agregan las tasas de interés nominales al control monetario, la mejora desaparece (p Holm = {fmt(tn.loc['media', 'p_HC3_holm'], 2)}). Las tasas nominales incorporan la inflación esperada (efecto Fisher), por eso quedan fuera de la especificación principal; pero el resultado obliga a leer H3 como una asociación condicionada a esa decisión.",
+             foot=f"Sólido: p HC3 corregido por Holm &lt; 0,05, p de permutación &lt; 0,05 e IC del ΔR² por encima de 0. Indicio: alguna prueba sin corregir con p &lt; 0,05. La mediana solo cambia el nivel y Theil-Sen solo la tendencia: en las demás filas repiten la especificación principal. Con tasas nominales hay {fmt(dg.loc[('media', 'B'), 'n'] / (4 * K + 2), 1)} países por predictor.", full=True, height=600)
 body += card("coef", "¿Qué hay detrás del resultado para el nivel de inflación?",
              "Coeficientes del modelo completo para log(inflación media), con intervalos del 95% (errores HC3).",
-             read="<b>Lectura.</b> Ningún componente no monetario es significativo por separado: el aporte es <b>conjunto</b>, coherente con un fenómeno multicausal. El primer componente monetario (capacidad fiscal y profundidad financiera) es el único coeficiente individual significativo: más profundidad, menos inflación.",
-             foot="Asociaciones, no efectos causales: cada componente resume decenas de indicadores correlacionados entre sí (VIF máximo 9,0).", full=True, height=400)
+             read=f"<b>Lectura.</b> {('Ningún componente es significativo por separado' if sig.empty else f'Solo {len(sig)} de {len(cf)} componentes son significativos por separado (' + ', '.join(DIM_LABELS[c.split('_')[0]].lower() + ' PC' + c.split('PC')[1] for c in sig.index) + ')')}. El aporte de las dimensiones no monetarias es sobre todo <b>conjunto</b>, coherente con un fenómeno multicausal y con que las dimensiones comparten un gradiente de desarrollo.",
+             foot=f"Asociaciones, no efectos causales: cada componente resume decenas de indicadores correlacionados (VIF máximo {fmt(dg.loc[('media', 'B'), 'vif_max'], 1)}). La colinealidad entre bloques impide interpretar coeficientes individuales, pero no afecta a las pruebas conjuntas.", full=True, height=520)
 body += "</div>"
-(OUT / "05_h2_h3_modelos.html").write_text(page("05_h2_h3_modelos.html", "H2 y H3 · ¿Qué aportan las dimensiones no monetarias?",
+(OUT / "06_h2_h3_modelos.html").write_text(page("06_h2_h3_modelos.html", "H2 y H3 · ¿Qué aportan las dimensiones no monetarias?",
     "Modelos de regresión anidados que controlan por el perfil monetario-fiscal.",
-    "Medir si las dimensiones institucional, estructural y sociodemográfica explican diferencias en las trayectorias inflacionarias más allá del perfil monetario-fiscal, cada una por separado (H2) y en conjunto (H3), y comprobar si las conclusiones resisten especificaciones alternativas.",
-    body, figs, REPO, sources=SOURCES + " Inferencia: F clásico, Wald robusto HC3, permutación del bloque (2.000) y bootstrap de pares (2.000)."), encoding="utf-8")
+    "Medir si las dimensiones institucional, estructural y sociodemográfica explican diferencias en las trayectorias inflacionarias más allá del perfil monetario-fiscal, cada una por separado (H2) y en conjunto (H3), comprobar si las conclusiones resisten especificaciones alternativas y si se traducen en capacidad predictiva.",
+    body, figs, REPO, sources=SOURCES + " Inferencia: F clásico, Wald robusto HC3, permutación del bloque (2.000), bootstrap de pares (2.000), corrección de Holm y validación cruzada repetida."), encoding="utf-8")
 
 # ---------------------------------------------------------------- Inicio
-tiles = [("01_datos.html", "01", "Datos", "Fuentes, cobertura y cómo se construyó el universo de 560 indicadores y 183 países."),
+n_ind = summ_feat["indicadores_cumplen_umbral"]
+tiles = [("01_datos.html", "01", "Datos", f"Fuentes, cobertura y cómo se construyó el universo de {n_ind} indicadores y {summ_feat['paises_analisis']} países."),
          ("02_clasificacion.html", "02", "Clasificación con LLM", "Validación de la asignación de indicadores a las cuatro dimensiones teóricas."),
-         ("03_inflacion.html", "03", "Inflación", "Explorador por país, episodios extremos y los tres estadísticos de trayectoria."),
-         ("04_h1_perfiles.html", "04", "H1 · Perfiles", "Grupos monetario-fiscales y heterogeneidad de la inflación dentro de ellos."),
-         ("05_h2_h3_modelos.html", "05", "H2–H3 · Modelos", "Aporte de las dimensiones no monetarias y pruebas de robustez.")]
-body = (f'<div class="objective"><h2>Pregunta de investigación</h2><p>¿En qué medida compartir un perfil monetario-fiscal explica que los países tengan trayectorias inflacionarias similares, y qué aportan las dimensiones institucional, estructural y sociodemográfica a las diferencias que persisten? Se analizan 183 países miembros de la ONU entre 2000 y 2020, combinando 560 indicadores clasificados con un modelo de lenguaje, reducción de dimensionalidad (PCA), clustering y regresiones anidadas.</p></div>'
-        + kpis([("183", "países"), ("560", "indicadores"), ("3", "fuentes"), ("21", "años"), ("3", "hipótesis")]) + verdicts
-        + '<h2 style="font-size:20px;margin:28px 0 12px">Explorá el análisis</h2><div class="tiles">'
-        + "".join(f'<a class="tile" href="{h}"><span class="num">{n}</span><h4>{t}</h4><p>{d}</p></a>' for h, n, t, d in tiles) + "</div>"
+         ("03_inflacion.html", "03", "Inflación", "Explorador por país, episodios de inflación alta y los tres estadísticos de trayectoria."),
+         ("04_extremos.html", "04", "Distribuciones y extremos", "Forma de las distribuciones, detección de casos extremos, pruebas y tratamiento."),
+         ("05_h1_perfiles.html", "05", "H1 · Perfiles", "Grupos monetario-fiscales y heterogeneidad de la inflación dentro de ellos."),
+         ("06_h2_h3_modelos.html", "06", "H2–H3 · Modelos", "Aporte de las dimensiones no monetarias, robustez y validación fuera de muestra.")]
+tile_html = lambda ts: '<div class="tiles">' + "".join(f'<a class="tile" href="{h}"><span class="num">{n}</span><h4>{t}</h4><p>{d}</p></a>' for h, n, t, d in ts) + "</div>"
+body = (f'<div class="objective"><h2>Pregunta de investigación</h2><p>¿En qué medida compartir un perfil monetario-fiscal explica que los países tengan trayectorias inflacionarias similares, y qué aportan las dimensiones institucional, estructural y sociodemográfica a las diferencias que persisten? Se analizan {summ_feat["paises_analisis"]} países miembros de la ONU entre 2000 y 2020, combinando {n_ind} indicadores clasificados con un modelo de lenguaje, reducción de dimensionalidad (PCA), clustering y regresiones anidadas.</p></div>'
+        + kpis([(str(summ_feat["paises_analisis"]), "países"), (str(n_ind), "indicadores"), ("3", "fuentes"), ("21", "años"), ("3", "hipótesis")]) + verdicts
+        + '<h2 style="font-size:20px;margin:28px 0 12px">Análisis exploratorio</h2>' + tile_html(tiles[:4])
+        + '<h2 style="font-size:20px;margin:28px 0 12px">Modelado</h2>' + tile_html(tiles[4:])
         + '<div class="card" style="margin-top:24px"><h3>Método en cinco pasos</h3><ol style="margin:6px 0 0;padding-left:20px;font-size:14px;color:#52514e">'
-          '<li>Construcción de una base país-año con WDI, V-Dem y WITS, estandarizada a los 193 miembros de la ONU.</li>'
+          '<li>Construcción de una base país-año con WDI, V-Dem y WITS, estandarizada a los 193 miembros de la ONU, sin variables con relación mecánica con la inflación.</li>'
           '<li>Clasificación de cada indicador en una dimensión teórica con un LLM de pesos abiertos (Groq), validada contra una muestra manual.</li>'
-          '<li>Resumen de cada serie 2000-2020 en nivel, tendencia y volatilidad; imputación KNN; PCA por dimensión.</li>'
+          '<li>Resumen de cada serie 2000-2020 en nivel, tendencia y volatilidad; imputación KNN; PCA por dimensión; análisis de distribuciones y casos extremos.</li>'
           '<li>H1: clustering del perfil monetario-fiscal y descomposición de la variación inflacionaria.</li>'
-          '<li>H2-H3: regresiones anidadas con inferencia robusta, permutaciones, bootstrap y cuatro especificaciones.</li></ol></div>')
+          f'<li>H2-H3: regresiones anidadas con {K} componentes por dimensión, inferencia robusta, permutaciones, bootstrap, corrección de Holm, {len(VAR)} especificaciones y validación fuera de muestra.</li></ol></div>')
 hero_sub = (f'Trabajo Final de Máster en Ciencia de Datos · B. Carmela Roman. Proyecto reproducible: código modular, pipeline de punta a punta y 8 notebooks documentados.'
             f'<br><br><a class="btn" href="01_datos.html">Explorar los dashboards</a><a class="btn ghost" href="{REPO}">Ver el repositorio en GitHub</a>')
 (OUT / "index.html").write_text(page("index.html", "Multicausalidad de la inflación: un estudio comparativo con Machine Learning", hero_sub, "", body, {}, REPO,

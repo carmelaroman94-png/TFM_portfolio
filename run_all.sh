@@ -15,4 +15,5 @@ python3 pipeline/run_robustness_h1.py
 for v in principal deflactor theil_sen mediana con_atipicos tasas_nominales; do python3 pipeline/run_regression.py "$v"; done
 for k in 2 3; do python3 pipeline/run_regression.py principal --k "$k"; done
 python3 pipeline/run_regression_cv.py
+python3 pipeline/run_extremos.py
 python3 pipeline/build_dashboards.py

@@ -7,12 +7,13 @@ import json
 import plotly.graph_objects as go
 
 PAGES = [
-    ("index.html", "Inicio"),
-    ("01_datos.html", "1 · Datos"),
-    ("02_clasificacion.html", "2 · Clasificación"),
-    ("03_inflacion.html", "3 · Inflación"),
-    ("04_h1_perfiles.html", "4 · H1 Perfiles"),
-    ("05_h2_h3_modelos.html", "5 · H2–H3 Modelos"),
+    ("index.html", "Inicio", ""),
+    ("01_datos.html", "1 · Datos", "Análisis exploratorio"),
+    ("02_clasificacion.html", "2 · Clasificación", "Análisis exploratorio"),
+    ("03_inflacion.html", "3 · Inflación", "Análisis exploratorio"),
+    ("04_extremos.html", "4 · Distribuciones y extremos", "Análisis exploratorio"),
+    ("05_h1_perfiles.html", "5 · H1 Perfiles", "Modelado"),
+    ("06_h2_h3_modelos.html", "6 · H2–H3 Modelos", "Modelado"),
 ]
 
 CSS = """
@@ -28,6 +29,7 @@ h1{font-size:30px;line-height:1.2;margin:6px 0 8px;font-weight:700}
 nav{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
 nav a{color:var(--cream);text-decoration:none;padding:10px 14px;border-radius:8px 8px 0 0;font-size:14px;opacity:.8}
 nav a:hover{opacity:1;background:var(--forest-2)}nav a.on{background:var(--cream);color:var(--forest);opacity:1;font-weight:600}
+nav .grp{align-self:center;font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.55;padding:0 4px 0 14px}
 main{padding:28px 0 40px}
 .objective{background:#fff;border-left:4px solid var(--forest);border-radius:8px;padding:18px 22px;margin-bottom:22px}
 .objective h2{margin:0 0 6px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--forest)}
@@ -104,8 +106,13 @@ def kpis(items: list[tuple[str, str]]) -> str:
 
 def page(filename: str, title: str, subtitle: str, objective: str, body: str, figs: dict, repo_url: str,
          extra_js: str = "", sources: str = "") -> str:
-    nav = "".join(f'<a href="{f}" class="{"on" if f == filename else ""}">{lab}</a>' for f, lab in PAGES)
-    idx = [f for f, _ in PAGES].index(filename)
+    nav, group = "", ""
+    for f, lab, grp in PAGES:
+        if grp and grp != group:
+            nav += f'<span class="grp">{grp}</span>'
+            group = grp
+        nav += f'<a href="{f}" class="{"on" if f == filename else ""}">{lab}</a>'
+    idx = [f for f, _, _ in PAGES].index(filename)
     prev_link = f'<a href="{PAGES[idx - 1][0]}">← {PAGES[idx - 1][1]}</a>' if idx > 0 else "<span></span>"
     next_link = f'<a href="{PAGES[idx + 1][0]}">{PAGES[idx + 1][1]} →</a>' if idx < len(PAGES) - 1 else "<span></span>"
     obj = f'<div class="objective"><h2>Objetivo de este dashboard</h2><p>{objective}</p></div>' if objective else ""
